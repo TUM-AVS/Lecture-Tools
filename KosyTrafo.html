@@ -1,0 +1,1203 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Koordinatentransformation – GAV Vorlesung 3 – TUM</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;600;700&display=swap');
+
+  :root {
+    --tum-blue:   #003070;
+    --tum-light:  #5B8DB8;
+    --tum-orange: #E37222;
+    --tum-green:  #5a8a00;
+    --tum-red:    #C0392B;
+    --tum-purple: #5B0072;
+    --bg:         #F0F4F8;
+    --panel:      #ffffff;
+    --border:     #D0DAE8;
+    --text:       #1a1a2e;
+    --muted:      #6b7a90;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'IBM Plex Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  header {
+    background: var(--tum-blue);
+    color: white;
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    box-shadow: 0 2px 12px rgba(0,48,112,0.3);
+  }
+  header .logo {
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 600;
+    font-size: 22px;
+    letter-spacing: -1px;
+    color: white;
+    border-right: 2px solid rgba(255,255,255,0.3);
+    padding-right: 16px;
+  }
+  header .title { font-size: 15px; font-weight: 400; opacity: 0.92; }
+  header .subtitle { font-size: 11px; opacity: 0.65; margin-top: 1px; }
+
+  .app {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 0;
+    height: calc(100vh - 56px);
+  }
+
+  /* ── SIDEBAR ── */
+  .sidebar {
+    background: white;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    padding: 16px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .mode-group {
+    background: #EEF3FA;
+    border: 1px solid #C8D8EC;
+    border-radius: 10px;
+    padding: 12px;
+  }
+  .mode-group label {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--tum-blue);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .mode-btn {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 8px 12px;
+    margin-bottom: 5px;
+    border: 1.5px solid var(--border);
+    border-radius: 7px;
+    background: white;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 12.5px;
+    cursor: pointer;
+    transition: all 0.15s;
+    color: var(--text);
+  }
+  .mode-btn:hover { border-color: var(--tum-blue); background: #F5F8FF; }
+  .mode-btn.active {
+    background: var(--tum-blue);
+    color: white;
+    border-color: var(--tum-blue);
+    font-weight: 600;
+  }
+  .mode-btn.active.orange { background: var(--tum-orange); border-color: var(--tum-orange); }
+  .mode-btn.active.green  { background: var(--tum-green);  border-color: var(--tum-green); }
+  .mode-btn.active.purple { background: var(--tum-purple); border-color: var(--tum-purple); }
+  .mode-btn .mode-icon { margin-right: 6px; }
+
+  .slider-section { display: flex; flex-direction: column; gap: 10px; }
+
+  .slider-group {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+  }
+  .slider-group-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .slider-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 7px;
+  }
+  .slider-row:last-child { margin-bottom: 0; }
+  .slider-row .lbl {
+    width: 56px;
+    font-size: 11px;
+    font-family: 'IBM Plex Mono', monospace;
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+  .slider-row input[type=range] {
+    flex: 1;
+    height: 4px;
+    accent-color: var(--tum-blue);
+    cursor: pointer;
+  }
+  .slider-row .val {
+    width: 42px;
+    text-align: right;
+    font-size: 11px;
+    font-family: 'IBM Plex Mono', monospace;
+    color: var(--text);
+    font-weight: 600;
+  }
+
+  .preset-row {
+    display: flex;
+    gap: 5px;
+    flex-wrap: wrap;
+  }
+  .preset-btn {
+    flex: 1;
+    min-width: 60px;
+    padding: 5px 4px;
+    font-size: 10px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    background: #F0F4F8;
+    cursor: pointer;
+    transition: all 0.12s;
+    text-align: center;
+    color: var(--text);
+  }
+  .preset-btn:hover { background: var(--tum-blue); color: white; border-color: var(--tum-blue); }
+
+  .reset-btn {
+    width: 100%;
+    padding: 8px;
+    font-size: 12px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    border: 1.5px solid var(--border);
+    border-radius: 7px;
+    background: white;
+    cursor: pointer;
+    transition: all 0.15s;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .reset-btn:hover { border-color: var(--tum-red); color: var(--tum-red); }
+
+  /* ── MAIN AREA ── */
+  .main {
+    display: grid;
+    grid-template-rows: 1fr auto;
+    overflow: hidden;
+  }
+
+  .canvas-area {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr;
+    gap: 8px;
+    padding: 12px;
+    overflow: hidden;
+  }
+  .canvas-area.single { grid-template-columns: 1fr; }
+  .canvas-area.compare { grid-template-columns: 1fr 1fr; }
+  .canvas-area.chain { grid-template-columns: 1fr 1fr; }
+
+  .canvas-panel {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+  .canvas-panel canvas { flex: 1; width: 100%; height: 100%; display: block; }
+  .canvas-panel.full-span { grid-column: 1 / -1; }
+
+  .info-bar {
+    background: white;
+    border-top: 1px solid var(--border);
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    min-height: 52px;
+    flex-wrap: wrap;
+  }
+  .info-formula {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--tum-blue);
+    background: #EEF3FA;
+    padding: 5px 10px;
+    border-radius: 5px;
+    border: 1px solid #C8D8EC;
+  }
+  .info-result {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--tum-red);
+  }
+  .info-insight {
+    font-size: 11.5px;
+    color: var(--muted);
+    flex: 1;
+    max-width: 400px;
+  }
+
+  /* Chain step buttons */
+  .chain-controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    padding: 8px 12px;
+    background: #F8F0FF;
+    border-top: 1px solid #E0CCF0;
+  }
+  .step-btn {
+    padding: 6px 14px;
+    font-size: 12px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    border: 1.5px solid var(--tum-purple);
+    border-radius: 6px;
+    background: white;
+    color: var(--tum-purple);
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.15s;
+  }
+  .step-btn:hover, .step-btn.active { background: var(--tum-purple); color: white; }
+  .step-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--tum-purple);
+    font-family: 'IBM Plex Mono', monospace;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">TUM</div>
+  <div>
+    <div class="title">Koordinatentransformation — GAV Vorlesung 3</div>
+    <div class="subtitle">Grundlagen Autonomer Fahrzeuge · Prof. Betz · Interaktives Tool</div>
+  </div>
+</header>
+
+<div class="app">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+
+    <div class="mode-group">
+      <label>Transformations-Modus</label>
+      <button class="mode-btn active" data-mode="passiv" onclick="setMode('passiv')">
+        Passiv &nbsp;<small>(KoSy dreht sich)</small>
+      </button>
+      <button class="mode-btn orange" data-mode="aktiv" onclick="setMode('aktiv')">
+        Aktiv &nbsp;<small>(Punkt dreht sich)</small>
+      </button>
+      <button class="mode-btn green" data-mode="vergleich" onclick="setMode('vergleich')">
+        Vergleich &nbsp;<small>(Aktiv | Passiv)</small>
+      </button>
+      <button class="mode-btn purple" data-mode="verkettung" onclick="setMode('verkettung')">
+        Verkettung &nbsp;<small>(Intr. | Extr.)</small>
+      </button>
+    </div>
+
+    <div class="slider-section">
+      <div class="slider-group">
+        <div class="slider-group-label" style="color:#5a8a00">Translation</div>
+        <div class="slider-row">
+          <span class="lbl">Δx</span>
+          <input type="range" id="sl_tx" min="-5" max="5" step="0.1" value="2.0" oninput="update()">
+          <span class="val" id="v_tx">2.0</span>
+        </div>
+        <div class="slider-row">
+          <span class="lbl">Δy</span>
+          <input type="range" id="sl_ty" min="-5" max="5" step="0.1" value="1.5" oninput="update()">
+          <span class="val" id="v_ty">1.5</span>
+        </div>
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-group-label" style="color:#5a8a00">Rotation Yaw</div>
+        <div class="slider-row">
+          <span class="lbl">θz °</span>
+          <input type="range" id="sl_rz" min="-180" max="180" step="1" value="30" oninput="update()">
+          <span class="val" id="v_rz">30°</span>
+        </div>
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-group-label" style="color:var(--tum-orange)">Rotation 3D</div>
+        <div class="slider-row">
+          <span class="lbl">θx °</span>
+          <input type="range" id="sl_rx" min="-180" max="180" step="1" value="0" oninput="update()">
+          <span class="val" id="v_rx">0°</span>
+        </div>
+        <div class="slider-row">
+          <span class="lbl">θy °</span>
+          <input type="range" id="sl_ry" min="-180" max="180" step="1" value="0" oninput="update()">
+          <span class="val" id="v_ry">0°</span>
+        </div>
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-group-label" style="color:var(--tum-red)">Messpunkt</div>
+        <div class="slider-row">
+          <span class="lbl">Px</span>
+          <input type="range" id="sl_px" min="-1.4" max="1.4" step="0.05" value="1.0" oninput="update()">
+          <span class="val" id="v_px">1.00</span>
+        </div>
+        <div class="slider-row">
+          <span class="lbl">Py</span>
+          <input type="range" id="sl_py" min="-1.4" max="1.4" step="0.05" value="0.0" oninput="update()">
+          <span class="val" id="v_py">0.00</span>
+        </div>
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-group-label" style="color:var(--muted)">Szenarien</div>
+        <div class="preset-row">
+          <button class="preset-btn" onclick="applyPreset(2,1,0,0,0,0.5,0.5)">Nur Transl.</button>
+          <button class="preset-btn" onclick="applyPreset(0,0,45,0,0,1.0,0)">45° Yaw</button>
+          <button class="preset-btn" onclick="applyPreset(1.5,0.8,30,0,0,0.5,0.3)">Rot+Transl.</button>
+          <button class="preset-btn" onclick="applyPreset(0,0,-45,0,0,1.0,0)">Gegenrot.</button>
+        </div>
+        <div style="margin-top:8px">
+          <button class="reset-btn" onclick="resetAll()">↺ Reset</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main" id="mainArea">
+    <div class="canvas-area" id="canvasArea">
+      <div class="canvas-panel" id="panel2d">
+        <canvas id="c2d"></canvas>
+      </div>
+      <div class="canvas-panel" id="panel3d">
+        <canvas id="c3d"></canvas>
+      </div>
+    </div>
+
+    <div id="infoBar" class="info-bar">
+      <span class="info-formula" id="infoFormula">ᴸp = Rᵀ · ᵂp</span>
+      <span class="info-result" id="infoResult"></span>
+      <span class="info-insight" id="infoInsight"></span>
+    </div>
+
+    <!-- Chain controls (hidden by default) -->
+    <div class="chain-controls" id="chainControls" style="display:none">
+      <span class="step-label">Schritt:</span>
+      <button class="step-btn active" id="sb0" onclick="setChainStep(0)">0 – Start</button>
+      <button class="step-btn" id="sb1" onclick="setChainStep(1)">1 – Rz / Rx</button>
+      <button class="step-btn" id="sb2" onclick="setChainStep(2)">2 – Ry</button>
+      <button class="step-btn" id="sb3" onclick="setChainStep(3)">3 – Fertig</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// MATH CORE
+// ═══════════════════════════════════════════════════════
+const d2r = d => d * Math.PI / 180;
+const r2d = r => r * 180 / Math.PI;
+
+function R2(deg) {
+  const t = d2r(deg), c = Math.cos(t), s = Math.sin(t);
+  return [[c,-s],[s,c]];
+}
+function mulM2V2(M,v) { return [M[0][0]*v[0]+M[0][1]*v[1], M[1][0]*v[0]+M[1][1]*v[1]]; }
+function transposeM2(M) { return [[M[0][0],M[1][0]],[M[0][1],M[1][1]]]; }
+
+function Rx3(deg) {
+  const t=d2r(deg),c=Math.cos(t),s=Math.sin(t);
+  return [[1,0,0],[0,c,-s],[0,s,c]];
+}
+function Ry3(deg) {
+  const t=d2r(deg),c=Math.cos(t),s=Math.sin(t);
+  return [[c,0,s],[0,1,0],[-s,0,c]];
+}
+function Rz3(deg) {
+  const t=d2r(deg),c=Math.cos(t),s=Math.sin(t);
+  return [[c,-s,0],[s,c,0],[0,0,1]];
+}
+function mulM3(A,B) {
+  const R=[[0,0,0],[0,0,0],[0,0,0]];
+  for(let i=0;i<3;i++) for(let j=0;j<3;j++) for(let k=0;k<3;k++) R[i][j]+=A[i][k]*B[k][j];
+  return R;
+}
+function mulM3V3(M,v) { return [0,1,2].map(i=>M[i][0]*v[0]+M[i][1]*v[1]+M[i][2]*v[2]); }
+function transposeM3(M) { return [[M[0][0],M[1][0],M[2][0]],[M[0][1],M[1][1],M[2][1]],[M[0][2],M[1][2],M[2][2]]]; }
+
+// ═══════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════
+let state = { mode:'passiv', tx:2, ty:1.5, rz:30, rx:0, ry:0, px:1, py:0, chainStep:0 };
+
+function getSliders() {
+  state.tx = +document.getElementById('sl_tx').value;
+  state.ty = +document.getElementById('sl_ty').value;
+  state.rz = +document.getElementById('sl_rz').value;
+  state.rx = +document.getElementById('sl_rx').value;
+  state.ry = +document.getElementById('sl_ry').value;
+  state.px = +document.getElementById('sl_px').value;
+  state.py = +document.getElementById('sl_py').value;
+  document.getElementById('v_tx').textContent = state.tx.toFixed(1);
+  document.getElementById('v_ty').textContent = state.ty.toFixed(1);
+  document.getElementById('v_rz').textContent = state.rz.toFixed(0)+'°';
+  document.getElementById('v_rx').textContent = state.rx.toFixed(0)+'°';
+  document.getElementById('v_ry').textContent = state.ry.toFixed(0)+'°';
+  document.getElementById('v_px').textContent = state.px.toFixed(2);
+  document.getElementById('v_py').textContent = state.py.toFixed(2);
+}
+
+function setMode(m) {
+  state.mode = m;
+  document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelector(`[data-mode="${m}"]`).classList.add('active');
+  layoutForMode();
+  update();
+}
+
+function setChainStep(s) {
+  state.chainStep = s;
+  document.querySelectorAll('.step-btn').forEach((b,i)=>b.classList.toggle('active',i===s));
+  update();
+}
+
+function applyPreset(tx,ty,rz,rx,ry,px,py) {
+  const ids = ['sl_tx','sl_ty','sl_rz','sl_rx','sl_ry','sl_px','sl_py'];
+  const vals = [tx,ty,rz,rx,ry,px,py];
+  ids.forEach((id,i) => document.getElementById(id).value=vals[i]);
+  update();
+}
+
+function resetAll() { applyPreset(2,1.5,30,0,0,1,0); }
+
+// ═══════════════════════════════════════════════════════
+// LAYOUT SWITCHING
+// ═══════════════════════════════════════════════════════
+function layoutForMode() {
+  const ca = document.getElementById('canvasArea');
+  const cc = document.getElementById('chainControls');
+  const ib = document.getElementById('infoBar');
+  ca.innerHTML = '';
+  cc.style.display = 'none';
+  ib.style.display = 'flex';
+
+  if (state.mode === 'passiv' || state.mode === 'aktiv') {
+    ca.className = 'canvas-area';
+    ca.innerHTML = `
+      <div class="canvas-panel" id="panel2d"><canvas id="c2d"></canvas></div>
+      <div class="canvas-panel" id="panel3d"><canvas id="c3d"></canvas></div>`;
+  } else if (state.mode === 'vergleich') {
+    ca.className = 'canvas-area compare';
+    ca.innerHTML = `
+      <div class="canvas-panel" id="panelPassiv"><canvas id="cPassiv"></canvas></div>
+      <div class="canvas-panel" id="panelAktiv"><canvas id="cAktiv"></canvas></div>`;
+  } else { // verkettung
+    ca.className = 'canvas-area chain';
+    ca.innerHTML = `
+      <div class="canvas-panel" id="panelIntr"><canvas id="cIntr"></canvas></div>
+      <div class="canvas-panel" id="panelExtr"><canvas id="cExtr"></canvas></div>`;
+    cc.style.display = 'flex';
+    ib.style.display = 'none';
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// CANVAS 2D DRAWING ENGINE
+// ═══════════════════════════════════════════════════════
+class Plot2D {
+  constructor(canvas) {
+    this.cv = canvas;
+    this.ctx = canvas.getContext('2d');
+    this.W = 0; this.H = 0;
+    this.ox = 0; this.oy = 0; // origin in pixels
+    this.scale = 0; // pixels per unit
+  }
+
+  resize() {
+    const rect = this.cv.parentElement.getBoundingClientRect();
+    this.cv.width  = rect.width  * devicePixelRatio;
+    this.cv.height = rect.height * devicePixelRatio;
+    this.cv.style.width  = rect.width  + 'px';
+    this.cv.style.height = rect.height + 'px';
+    this.W = this.cv.width;
+    this.H = this.cv.height;
+    const lim = 1.5;
+    this.scale = Math.min(this.W, this.H) / (lim * 2) * 0.93;
+    this.ox = this.W / 2;
+    this.oy = this.H / 2;
+    this.ctx.scale(devicePixelRatio, devicePixelRatio);
+    this.W /= devicePixelRatio;
+    this.H /= devicePixelRatio;
+    this.ctx.setTransform(1,0,0,1,0,0);
+  }
+
+  // World → canvas pixel
+  tx(x) { return this.ox + x * this.scale; }
+  ty(y) { return this.oy - y * this.scale; }
+  ts(l) { return l * this.scale; }
+
+  clear(bg='#ffffff') {
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.setTransform(1,0,0,1,0,0);
+    ctx.fillStyle = bg;
+    ctx.fillRect(0,0,this.cv.width,this.cv.height);
+    ctx.restore();
+  }
+
+  grid() {
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.strokeStyle = '#e0e8f0';
+    ctx.lineWidth = 0.8;
+    ctx.setLineDash([3,5]);
+    for(let v=-2;v<=2;v+=0.5) {
+      ctx.beginPath(); ctx.moveTo(this.tx(v),this.ty(-2)); ctx.lineTo(this.tx(v),this.ty(2)); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(this.tx(-2),this.ty(v)); ctx.lineTo(this.tx(2),this.ty(v)); ctx.stroke();
+    }
+    ctx.setLineDash([]);
+    ctx.strokeStyle='#b0b8c8'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(this.tx(-2),this.ty(0)); ctx.lineTo(this.tx(2),this.ty(0)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(this.tx(0),this.ty(-2)); ctx.lineTo(this.tx(0),this.ty(2)); ctx.stroke();
+    ctx.restore();
+  }
+
+  arrow(x1,y1,x2,y2,color,lw=2,dash=[],alpha=1,label='',labelOff=[0.05,0.05]) {
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = color;
+    ctx.fillStyle   = color;
+    ctx.lineWidth   = lw;
+    ctx.setLineDash(dash);
+    const px1=this.tx(x1), py1=this.ty(y1), px2=this.tx(x2), py2=this.ty(y2);
+    const dx=px2-px1, dy=py2-py1, len=Math.sqrt(dx*dx+dy*dy);
+    if(len<2) { ctx.restore(); return; }
+    const ux=dx/len, uy=dy/len;
+    const hs = Math.min(12*lw/2, len*0.35);
+    ctx.beginPath(); ctx.moveTo(px1,py1); ctx.lineTo(px2-ux*hs*0.7, py2-uy*hs*0.7); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.moveTo(px2,py2);
+    ctx.lineTo(px2-ux*hs-uy*hs*0.4, py2-uy*hs+ux*hs*0.4);
+    ctx.lineTo(px2-ux*hs+uy*hs*0.4, py2-uy*hs-ux*hs*0.4);
+    ctx.closePath(); ctx.fill();
+    if(label) {
+      ctx.setLineDash([]);
+      ctx.font = `bold ${13*devicePixelRatio > 1.5 ? 13:11}px IBM Plex Sans, sans-serif`;
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = color;
+      ctx.fillText(label, this.tx(x2+labelOff[0]), this.ty(y2+labelOff[1]));
+    }
+    ctx.restore();
+  }
+
+  arcAngle(cx,cy,r,a1deg,a2deg,color,lw=1.8) {
+    const ctx=this.ctx;
+    ctx.save();
+    ctx.strokeStyle=color; ctx.lineWidth=lw;
+    ctx.beginPath();
+    ctx.arc(this.tx(cx),this.ty(cy),this.ts(r),-d2r(a2deg),-d2r(a1deg));
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  text(x,y,str,color='#333',size=12,bold=false,align='left',bg=null) {
+    const ctx=this.ctx;
+    ctx.save();
+    ctx.font = `${bold?'bold ':''}${size}px IBM Plex Sans, sans-serif`;
+    ctx.fillStyle=color; ctx.textAlign=align;
+    if(bg) {
+      const m=ctx.measureText(str);
+      const tw=m.width, th=size;
+      ctx.fillStyle=bg; ctx.globalAlpha=0.88;
+      ctx.fillRect(this.tx(x)-2, this.ty(y)-th, tw+4, th+4);
+      ctx.globalAlpha=1;
+    }
+    ctx.fillStyle=color;
+    ctx.fillText(str,this.tx(x),this.ty(y));
+    ctx.restore();
+  }
+
+  textPx(px,py,str,color='#333',size=12,bold=false) {
+    const ctx=this.ctx;
+    ctx.save();
+    ctx.font=`${bold?'bold ':''}${size}px IBM Plex Sans, sans-serif`;
+    ctx.fillStyle=color;
+    ctx.fillText(str,px,py);
+    ctx.restore();
+  }
+
+  localGrid(Rm,alpha=0.12) {
+    const ctx=this.ctx; ctx.save();
+    ctx.strokeStyle=`rgba(34,140,34,${alpha})`; ctx.lineWidth=0.7;
+    for(let k=-3;k<=3;k+=0.5) {
+      const lx=mulM2V2(Rm,[k,0]), ly=mulM2V2(Rm,[k,0]);
+      const a=mulM2V2(Rm,[k,-3]), b=mulM2V2(Rm,[k,3]);
+      const c=mulM2V2(Rm,[-3,k]), dd=mulM2V2(Rm,[3,k]);
+      ctx.beginPath(); ctx.moveTo(this.tx(a[0]),this.ty(a[1])); ctx.lineTo(this.tx(b[0]),this.ty(b[1])); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(this.tx(c[0]),this.ty(c[1])); ctx.lineTo(this.tx(dd[0]),this.ty(dd[1])); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  axisLabels() {
+    this.text(1.2,-0.12,'Welt-x','#444',11); this.text(0.04,1.28,'Welt-y','#444',11);
+  }
+
+  drawPassiv(s) {
+    const Rm=R2(s.rz), p=[s.px,s.py];
+    const lx=mulM2V2(Rm,[1,0]), ly=mulM2V2(Rm,[0,1]);
+    const sl=1.18;
+    // Title
+    this.clear('#fff');
+    this.grid();
+    this.localGrid(Rm);
+
+    // World axes
+    this.arrow(0,0,1.15,0,'#222',2.8,[]);
+    this.arrow(0,0,0,1.15,'#222',2.8,[]);
+    this.axisLabels();
+
+    // Local axes green
+    this.arrow(0,0,sl*lx[0],sl*lx[1],'#228B22',2.6,[]);
+    this.arrow(0,0,sl*ly[0],sl*ly[1],'#228B22',2.6,[]);
+    this.text(1.27*lx[0],1.27*lx[1],'L-x','#228B22',12,true,'center','white');
+    this.text(1.27*ly[0],1.27*ly[1],'L-y','#228B22',12,true,'center','white');
+
+    // Geometric vector p (blue)
+    this.arrow(0,0,p[0],p[1],'#1565C0',2.8,[]); 
+    this.text(p[0]+0.04,p[1]-0.08,'ᵂp','#1565C0',13,true,'left','white');
+
+    // Local coords
+    const pL=mulM2V2(transposeM2(Rm),p);
+    const cx=[pL[0]*lx[0],pL[0]*lx[1]];
+    const cy=[pL[1]*ly[0],pL[1]*ly[1]];
+    // Component arrows orange
+    this.arrow(0,0,cx[0],cx[1],'#E37222',2.2,[],0.88);
+    this.arrow(cx[0],cx[1],cx[0]+cy[0],cx[1]+cy[1],'#E37222',2.2,[],0.88);
+    // Dashed closing line
+    const ctx=this.ctx; ctx.save();
+    ctx.strokeStyle='#E37222'; ctx.lineWidth=1.3; ctx.setLineDash([4,4]); ctx.globalAlpha=0.6;
+    ctx.beginPath(); ctx.moveTo(this.tx(cx[0]+cy[0]),this.ty(cx[1]+cy[1])); ctx.lineTo(this.tx(p[0]),this.ty(p[1])); ctx.stroke();
+    ctx.restore();
+    // Component labels
+    const sx=pL[0]>=0?'+':'', sy=pL[1]>=0?'+':'';
+    this.text(cx[0]/2+0.06,cx[1]/2+0.06,`${sx}${pL[0].toFixed(3)} eₓ,L`,'#E37222',10,false,'left','white');
+    this.text(cx[0]+cy[0]/2+0.06,cx[1]+cy[1]/2-0.06,`${sy}${pL[1].toFixed(3)} eᵧ,L`,'#E37222',10,false,'left','white');
+
+    // Angle arc
+    if(Math.abs(s.rz)>=1) {
+      this.arcAngle(0,0,0.28,0,s.rz,'#228B22',1.8);
+      const mid=d2r(s.rz/2);
+      const sg=s.rz>=0?'+':'';
+      this.text(0.35*Math.cos(mid),0.35*Math.sin(mid),`${sg}${s.rz.toFixed(0)}°`,'#228B22',11,true,'center','white');
+    }
+
+    // Note p stays
+    this._bottomNote('p bleibt geometrisch gleich','#1565C0');
+    // Coord box
+    this._coordBox(`ᴸp = (${pL[0].toFixed(3)}, ${pL[1].toFixed(3)})ᵀ`,'#003070');
+    // Legend
+    this._legend2([['#228B22','lokale Achsen'],['#1565C0','geometrischer Vektor p']]);
+    // Title
+    const sg=s.rz>=0?'+':'';
+    this._title(`Passiv: lokales KoSy um ${sg}${s.rz.toFixed(0)}° gegen Welt gedreht`,'#003070');
+  }
+
+  drawAktiv(s) {
+    const Rm=R2(s.rz), p=[s.px,s.py];
+    if(Math.hypot(p[0],p[1])<0.01) p[0]=1;
+    const pr=mulM2V2(Rm,p);
+    this.clear('#fff');
+    this.grid();
+
+    // World axes
+    this.arrow(0,0,1.15,0,'#222',2.8,[]);
+    this.arrow(0,0,0,1.15,'#222',2.8,[]);
+    this.axisLabels();
+
+    // Original vector (blue dashed)
+    this.arrow(0,0,p[0],p[1],'#1565C0',2.5,[6,4],0.55);
+    this.text(p[0]+0.04,p[1]+0.06,'ᵂp','#1565C0',13,false,'left','white');
+
+    // Rotated vector (red)
+    this.arrow(0,0,pr[0],pr[1],'#C0392B',2.8,[]);
+    this.text(pr[0]+0.04,pr[1]+0.06,"ᵂp'","#C0392B",13,true,'left','white');
+
+    // Curved arrow tip-to-tip
+    const ctx=this.ctx; ctx.save();
+    ctx.strokeStyle='rgba(192,57,43,0.55)'; ctx.lineWidth=1.8; ctx.setLineDash([]);
+    const ax1=this.tx(p[0]),ay1=this.ty(p[1]),ax2=this.tx(pr[0]),ay2=this.ty(pr[1]);
+    const mx=(ax1+ax2)/2,my=(ay1+ay2)/2;
+    const dx=ax2-ax1,dy=ay2-ay1,len=Math.sqrt(dx*dx+dy*dy);
+    const cx2=mx-dy*0.3,cy2=my+dx*0.3;
+    ctx.beginPath(); ctx.moveTo(ax1,ay1); ctx.quadraticCurveTo(cx2,cy2,ax2,ay2); ctx.stroke();
+    ctx.restore();
+
+    // Angle arc from p direction
+    if(Math.abs(s.rz)>=1) {
+      const norm=Math.hypot(p[0],p[1]);
+      const r=Math.max(norm*0.38,0.22);
+      const aStart=r2d(Math.atan2(p[1],p[0]));
+      this.arcAngle(0,0,r,aStart,aStart+s.rz,'#C0392B',1.8);
+      const mid=d2r(aStart+s.rz/2);
+      const sg=s.rz>=0?'+':'';
+      this.text((r+0.1)*Math.cos(mid),(r+0.1)*Math.sin(mid),`${sg}${s.rz.toFixed(0)}°`,'#C0392B',11,true,'center','white');
+    }
+
+    this._bottomNote('KoSy bleibt fix – Vektor bewegt sich!','#C0392B');
+    this._coordBox(`ᵂp=(${p[0].toFixed(3)},${p[1].toFixed(3)})  ᵂp'=(${pr[0].toFixed(3)},${pr[1].toFixed(3)})`,'#C0392B');
+    this._legend2([['#1565C0',"ᵂp (original)"],['#C0392B',"ᵂp' = R(θ)·ᵂp"]]);
+    const sg=s.rz>=0?'+':'';
+    this._title(`Aktiv: Vektor wird um ${sg}${s.rz.toFixed(0)}° gedreht, KoSy bleibt fix`,'#C0392B');
+  }
+
+  _title(t,color) {
+    const ctx=this.ctx; ctx.save();
+    ctx.font='bold 13px IBM Plex Sans, sans-serif';
+    ctx.fillStyle=color; ctx.textAlign='center';
+    ctx.fillText(t, this.W/2, 20);
+    ctx.restore();
+  }
+
+  _bottomNote(txt,color) {
+    const ctx=this.ctx; ctx.save();
+    ctx.font='11px IBM Plex Sans, sans-serif';
+    const m=ctx.measureText(txt);
+    const bx=this.W/2-m.width/2-6, by=this.H-28, bw=m.width+12, bh=20;
+    ctx.fillStyle='white'; ctx.globalAlpha=0.9;
+    ctx.beginPath(); ctx.roundRect(bx,by,bw,bh,4); ctx.fill();
+    ctx.strokeStyle=color; ctx.lineWidth=1; ctx.globalAlpha=0.8;
+    ctx.beginPath(); ctx.roundRect(bx,by,bw,bh,4); ctx.stroke();
+    ctx.globalAlpha=1; ctx.fillStyle=color;
+    ctx.textAlign='center'; ctx.fillText(txt, this.W/2, by+14);
+    ctx.restore();
+  }
+
+  _coordBox(txt,color) {
+    const ctx=this.ctx; ctx.save();
+    ctx.font='11px IBM Plex Mono, monospace';
+    const m=ctx.measureText(txt);
+    const bx=8,by=this.H-52,bw=m.width+12,bh=20;
+    ctx.fillStyle='white'; ctx.globalAlpha=0.92;
+    ctx.beginPath(); ctx.roundRect(bx,by,bw,bh,4); ctx.fill();
+    ctx.strokeStyle='#ccc'; ctx.lineWidth=1; ctx.globalAlpha=0.9;
+    ctx.beginPath(); ctx.roundRect(bx,by,bw,bh,4); ctx.stroke();
+    ctx.globalAlpha=1; ctx.fillStyle=color;
+    ctx.fillText(txt,bx+6,by+14);
+    ctx.restore();
+  }
+
+  _legend2(items) {
+    const ctx=this.ctx; ctx.save();
+    const x=10, y0=36, lh=18;
+    const maxW=items.reduce((m,it)=>Math.max(m,ctx.measureText(it[1]).width+28),0);
+    ctx.fillStyle='rgba(255,255,255,0.92)';
+    ctx.beginPath(); ctx.roundRect(x-4,y0-14,maxW+8,items.length*lh+8,5); ctx.fill();
+    ctx.strokeStyle='#ccc'; ctx.lineWidth=0.8;
+    ctx.beginPath(); ctx.roundRect(x-4,y0-14,maxW+8,items.length*lh+8,5); ctx.stroke();
+    items.forEach(([color,label],i) => {
+      ctx.fillStyle=color; ctx.fillRect(x,y0+i*lh-9,18,3);
+      ctx.font='11px IBM Plex Sans, sans-serif'; ctx.fillStyle='#333';
+      ctx.fillText(label, x+22, y0+i*lh);
+    });
+    ctx.restore();
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// 3D PLOT (isometric projection)
+// ═══════════════════════════════════════════════════════
+class Plot3D {
+  constructor(canvas) {
+    this.cv = canvas;
+    this.ctx = canvas.getContext('2d');
+    this.W=0; this.H=0;
+  }
+
+  resize() {
+    const rect = this.cv.parentElement.getBoundingClientRect();
+    this.cv.width  = rect.width  * devicePixelRatio;
+    this.cv.height = rect.height * devicePixelRatio;
+    this.cv.style.width  = rect.width+'px';
+    this.cv.style.height = rect.height+'px';
+    this.W = rect.width; this.H = rect.height;
+    this.ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+  }
+
+  clear() {
+    const ctx=this.ctx;
+    ctx.clearRect(0,0,this.W,this.H);
+    ctx.fillStyle='#F8F9FF';
+    ctx.fillRect(0,0,this.W,this.H);
+  }
+
+  drawGrid3D(cx, cy, scl, extent=2, step=0.5) {
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.lineWidth = 0.6;
+    ctx.setLineDash([2, 5]);
+
+    // XZ floor plane (y=0) – blue-grey
+    ctx.strokeStyle = '#b8cce0';
+    ctx.globalAlpha = 0.45;
+    for (let i = -extent; i <= extent; i += step) {
+      const [ax,ay]=this.project(-extent,0,i,cx,cy,scl); const [bx,by]=this.project(extent,0,i,cx,cy,scl);
+      ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(bx,by); ctx.stroke();
+      const [ex,ey]=this.project(i,0,-extent,cx,cy,scl); const [fx,fy]=this.project(i,0,extent,cx,cy,scl);
+      ctx.beginPath(); ctx.moveTo(ex,ey); ctx.lineTo(fx,fy); ctx.stroke();
+    }
+
+    // XY back wall (z=0) – slightly lighter
+    ctx.strokeStyle = '#c8d8ec';
+    ctx.globalAlpha = 0.35;
+    for (let i = -extent; i <= extent; i += step) {
+      const [ax,ay]=this.project(-extent,i,0,cx,cy,scl); const [bx,by]=this.project(extent,i,0,cx,cy,scl);
+      ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(bx,by); ctx.stroke();
+      const [ex,ey]=this.project(i,-extent,0,cx,cy,scl); const [fx,fy]=this.project(i,extent,0,cx,cy,scl);
+      ctx.beginPath(); ctx.moveTo(ex,ey); ctx.lineTo(fx,fy); ctx.stroke();
+    }
+
+    // YZ side wall (x=0) – slightly lighter
+    ctx.strokeStyle = '#c8d8ec';
+    ctx.globalAlpha = 0.30;
+    for (let i = -extent; i <= extent; i += step) {
+      const [ax,ay]=this.project(0,i,-extent,cx,cy,scl); const [bx,by]=this.project(0,i,extent,cx,cy,scl);
+      ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(bx,by); ctx.stroke();
+      const [ex,ey]=this.project(0,-extent,i,cx,cy,scl); const [fx,fy]=this.project(0,extent,i,cx,cy,scl);
+      ctx.beginPath(); ctx.moveTo(ex,ey); ctx.lineTo(fx,fy); ctx.stroke();
+    }
+
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+
+  // 3D → 2D isometric
+  project(x,y,z,cx=null,cy=null,scale=null) {
+    const s=scale||Math.min(this.W,this.H)*0.22;
+    const px_=(x-z)*Math.cos(d2r(30))*s + (cx||this.W/2);
+    const py_=-(y + (x+z)*Math.sin(d2r(30))*0.5)*s + (cy||this.H*0.52);
+    return [px_,py_];
+  }
+
+  arrow3D(x1,y1,z1, x2,y2,z2, color, lw=2.5, alpha=1, dash=[],
+          cx=null,cy=null,scale=null) {
+    const ctx=this.ctx;
+    const [ax,ay]=this.project(x1,y1,z1,cx,cy,scale);
+    const [bx,by]=this.project(x2,y2,z2,cx,cy,scale);
+    ctx.save();
+    ctx.globalAlpha=alpha; ctx.strokeStyle=color; ctx.fillStyle=color;
+    ctx.lineWidth=lw; ctx.setLineDash(dash);
+    const dx=bx-ax,dy=by-ay,len=Math.sqrt(dx*dx+dy*dy);
+    if(len<2){ctx.restore();return;}
+    const ux=dx/len,uy=dy/len,hs=Math.min(10,len*0.3);
+    ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(bx-ux*hs*0.7,by-uy*hs*0.7); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(bx,by);
+    ctx.lineTo(bx-ux*hs-uy*hs*0.4,by-uy*hs+ux*hs*0.4);
+    ctx.lineTo(bx-ux*hs+uy*hs*0.4,by-uy*hs-ux*hs*0.4);
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+
+  label3D(x,y,z,txt,color,size=11,cx=null,cy=null,scale=null) {
+    const [px,py]=this.project(x,y,z,cx,cy,scale);
+    const ctx=this.ctx;
+    ctx.save(); ctx.font=`bold ${size}px IBM Plex Sans`; ctx.fillStyle=color;
+    ctx.fillText(txt,px+4,py-4);
+    ctx.restore();
+  }
+
+  drawFrame(Rmat, origin, color, label, scale3d, cx,cy,scl, alpha=1) {
+    const [ox,oy,oz]=origin;
+    const axes=[[1,0,0,'X'],[0,1,0,'Y'],[0,0,1,'Z']];
+    const dashes=[[],[4,4],[2,6]];
+    axes.forEach(([ex,ey,ez,lbl],i)=>{
+      const v=mulM3V3(Rmat,[ex*scale3d,ey*scale3d,ez*scale3d]);
+      this.arrow3D(ox,oy,oz, ox+v[0],oy+v[1],oz+v[2], color, 2.6, alpha, dashes[i], cx,cy,scl);
+      this.label3D(ox+v[0],oy+v[1],oz+v[2], `${lbl}${label}`,color,10,cx,cy,scl);
+    });
+    // Origin dot
+    const [ppx,ppy]=this.project(ox,oy,oz,cx,cy,scl);
+    const ctx=this.ctx; ctx.save();
+    ctx.fillStyle=color; ctx.globalAlpha=alpha;
+    ctx.beginPath(); ctx.arc(ppx,ppy,4,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
+
+  drawPassiv3D(s) {
+    this.clear();
+    const R=mulM3(mulM3(Rz3(s.rz),Ry3(s.ry)),Rx3(s.rx));
+    const tB=[s.tx,s.ty,0];
+    const cx=this.W/2, cy=this.H*0.52;
+    const all=[[0,0,0],tB,[s.px,s.py,0]];
+    const maxD=all.reduce((m,p)=>Math.max(m,...p.map(Math.abs)),0)+2;
+    const scl=Math.min(this.W,this.H)/(maxD*3.0);
+
+    this.drawGrid3D(cx,cy,scl,Math.ceil(maxD));
+    // World frame A (blue)
+    this.drawFrame([[1,0,0],[0,1,0],[0,0,1]],[0,0,0],'#003070','_W',2.2,cx,cy,scl);
+    // Translation arrow
+    this.arrow3D(0,0,0,...tB,'#5a8a00',1.8,0.7,[5,4],cx,cy,scl);
+    // Local frame L (orange)
+    this.drawFrame(R,tB,'#E37222','_L',2.2,cx,cy,scl);
+    // Fixed point P (red)
+    const [ppx,ppy]=this.project(s.px,s.py,0,cx,cy,scl);
+    const ctx=this.ctx; ctx.save();
+    ctx.fillStyle='#C0392B'; ctx.beginPath(); ctx.arc(ppx,ppy,6,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle='white'; ctx.lineWidth=1.5; ctx.stroke();
+    const pL=mulM3V3(transposeM3(R),[s.px-tB[0],s.py-tB[1],-tB[2]]);
+    ctx.font='bold 10px IBM Plex Mono'; ctx.fillStyle='#C0392B';
+    ctx.fillText(`P  ᵂ(${s.px.toFixed(1)},${s.py.toFixed(1)})  ᴸ(${pL[0].toFixed(1)},${pL[1].toFixed(1)})`,ppx+8,ppy-6);
+    ctx.restore();
+
+    this._title3D('3D – PASSIV: Beide KoSys sichtbar','#003070');
+  }
+
+  drawAktiv3D(s) {
+    this.clear();
+    const R=mulM3(mulM3(Rz3(s.rz),Ry3(s.ry)),Rx3(s.rx));
+    const cx=this.W/2, cy=this.H*0.52;
+    const scl=Math.min(this.W,this.H)*0.1;
+
+    this.drawGrid3D(cx,cy,scl,2);
+    // World frame (blue)
+    this.drawFrame([[1,0,0],[0,1,0],[0,0,1]],[0,0,0],'#003070','_W',2.2,cx,cy,scl);
+    // Original vector (blue dashed)
+    const p=[s.px,s.py,0];
+    this.arrow3D(0,0,0,...p,'#1565C0',2,[6,4],0.5,cx,cy,scl);
+    // Rotated vector (red)
+    const pr=mulM3V3(R,p);
+    this.arrow3D(0,0,0,...pr,'#C0392B',2.8,[],1,cx,cy,scl);
+    const [ppx,ppy]=this.project(...pr,cx,cy,scl);
+    const [px0,py0]=this.project(...p,cx,cy,scl);
+    const ctx=this.ctx; ctx.save();
+    // Original point (blue)
+    ctx.fillStyle='#1565C0'; ctx.globalAlpha=0.75;
+    ctx.beginPath(); ctx.arc(px0,py0,6,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle='white'; ctx.lineWidth=1.5; ctx.stroke();
+    ctx.globalAlpha=1; ctx.font='bold 10px IBM Plex Mono'; ctx.fillStyle='#1565C0';
+    ctx.fillText(`p=(${p[0].toFixed(2)},${p[1].toFixed(2)},0)`,px0+8,py0-6);
+    // Rotated point (red)
+    ctx.fillStyle='#C0392B'; ctx.globalAlpha=1;
+    ctx.beginPath(); ctx.arc(ppx,ppy,6,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle='white'; ctx.lineWidth=1.5; ctx.stroke();
+    ctx.font='bold 10px IBM Plex Mono'; ctx.fillStyle='#C0392B';
+    ctx.fillText(`p'=(${pr[0].toFixed(2)},${pr[1].toFixed(2)},${pr[2].toFixed(2)})`,ppx+8,ppy-6);
+    ctx.restore();
+
+    this._title3D('3D – AKTIV: Vektor dreht sich','#C0392B');
+  }
+
+  _title3D(t,color) {
+    const ctx=this.ctx; ctx.save();
+    ctx.font='bold 12px IBM Plex Sans'; ctx.fillStyle=color; ctx.textAlign='center';
+    ctx.fillText(t,this.W/2,18);
+    ctx.restore();
+  }
+
+  drawChain(isIntr, step, s) {
+    this.clear();
+    const θz=s.rz,θy=s.ry,θx=s.rx;
+    let R,Rprev,rotAngle,rotAxisLabel,color,modeTitle;
+
+    if(isIntr) {
+      color='#003070'; modeTitle='INTRINSISCH (ZYX – Körper-fest)';
+      const Rs=[
+        [[1,0,0],[0,1,0],[0,0,1]],
+        Rz3(θz),
+        mulM3(Rz3(θz),Ry3(θy)),
+        mulM3(mulM3(Rz3(θz),Ry3(θy)),Rx3(θx)),
+      ];
+      const Rp=[null,[[1,0,0],[0,1,0],[0,0,1]],Rz3(θz),mulM3(Rz3(θz),Ry3(θy))];
+      R=Rs[step]; Rprev=Rp[step];
+      rotAngle=[0,θz,θy,θx][step];
+      rotAxisLabel=[null,'Z (Körper)','Y\' (neu)','X\'\' (neu)'][step];
+    } else {
+      color='#E37222'; modeTitle='EXTRINSISCH (XYZ – Welt-fest)';
+      const Rs=[
+        [[1,0,0],[0,1,0],[0,0,1]],
+        Rx3(θx),
+        mulM3(Ry3(θy),Rx3(θx)),
+        mulM3(mulM3(Rz3(θz),Ry3(θy)),Rx3(θx)),
+      ];
+      const Rp=[null,[[1,0,0],[0,1,0],[0,0,1]],Rx3(θx),mulM3(Ry3(θy),Rx3(θx))];
+      R=Rs[step]; Rprev=Rp[step];
+      rotAngle=[0,θx,θy,θz][step];
+      rotAxisLabel=[null,'X (Welt)','Y (Welt)','Z (Welt)'][step];
+    }
+
+    const cx=this.W/2, cy=this.H*0.52;
+    const scl=Math.min(this.W,this.H)*0.15;
+    const sc=2.4;
+
+    this.drawGrid3D(cx,cy,scl,2.5);
+    // Ghost cube
+    this._drawCube([[1,0,0],[0,1,0],[0,0,1]],cx,cy,scl,'#aaa',0.05,0.15);
+    // Rotated cube
+    this._drawCube(R,cx,cy,scl,color,0.12,0.55);
+
+    // World axes (gray)
+    [[[sc,0,0],'Xw',[8,4]],[[0,sc,0],'Yw',[4,8]],[[0,0,sc],'Zw',[2,8]]].forEach(([v,l,d])=>{
+      this.arrow3D(0,0,0,...v,'#888',1.3,0.5,d,cx,cy,scl);
+      this.label3D(...v,l,'#888',9,cx,cy,scl);
+    });
+
+    // Ghost axes (prev step, light)
+    if(Rprev) {
+      [[sc,0,0],[0,sc,0],[0,0,sc]].forEach(v=>{
+        const vr=mulM3V3(Rprev,v);
+        this.arrow3D(0,0,0,...vr,'#999',1.8,0.28,[],cx,cy,scl);
+      });
+    }
+
+    // Current body axes (bold)
+    [[sc,0,0,'X'],[0,sc,0,'Y'],[0,0,sc,'Z']].forEach(([ex,ey,ez,l])=>{
+      const v=mulM3V3(R,[ex,ey,ez]);
+      this.arrow3D(0,0,0,...v,color,2.8,1,[],cx,cy,scl);
+      this.label3D(...v,l,color,12,cx,cy,scl);
+    });
+
+    // Rotation axis
+    if(rotAxisLabel && Math.abs(rotAngle)>0.5) {
+      let rax;
+      if(isIntr) {
+        rax=[[[0,0,1]],[[0,0,1]],mulM3V3(Rz3(θz),[0,1,0]),mulM3V3(mulM3(Rz3(θz),Ry3(θy)),[1,0,0])][step];
+      } else {
+        rax=[[null],[1,0,0],[0,1,0],[0,0,1]][step];
+      }
+      if(rax && rax[0]!==null) {
+        const nn=Math.hypot(...rax);
+        const rv=rax.map(x=>x/nn*sc*1.1);
+        this.arrow3D(0,0,0,...rv,'#e74c3c',1.8,0.85,[4,3],cx,cy,scl);
+        this.arrow3D(0,0,0,...rv.map(x=>-x),'#e74c3c',1.8,0.85,[4,3],cx,cy,scl);
+        this.label3D(...rv,rotAxisLabel,'#e74c3c',9,cx,cy,scl);
+      }
+    }
+
+    const ctx=this.ctx; ctx.save();
+    ctx.font='bold 12px IBM Plex Sans'; ctx.fillStyle=color; ctx.textAlign='center';
+    ctx.fillText(`${modeTitle}  –  Schritt ${step}/3`,this.W/2,18);
+    ctx.restore();
+  }
+
+  _drawCube(R,cx,cy,scl,color,alphaFace,alphaEdge) {
+    const verts=[];
+    for(let x of[-0.5,0.5]) for(let y of[-0.5,0.5]) for(let z of[-0.5,0.5]) {
+      const rv=mulM3V3(R,[x,y,z]);
+      verts.push(this.project(...rv,cx,cy,scl));
+    }
+    // 6 faces: 8 verts indexed
+    const faces=[[0,1,3,2],[4,5,7,6],[0,1,5,4],[2,3,7,6],[0,2,6,4],[1,3,7,5]];
+    const ctx=this.ctx; ctx.save();
+    ctx.fillStyle=color; ctx.strokeStyle=color;
+    faces.forEach(f=>{
+      ctx.globalAlpha=alphaFace;
+      ctx.beginPath(); f.forEach((vi,i)=>i?ctx.lineTo(...verts[vi]):ctx.moveTo(...verts[vi]));
+      ctx.closePath(); ctx.fill();
+      ctx.globalAlpha=alphaEdge; ctx.lineWidth=1;
+      ctx.beginPath(); f.forEach((vi,i)=>i?ctx.lineTo(...verts[vi]):ctx.moveTo(...verts[vi]));
+      ctx.closePath(); ctx.stroke();
+    });
+    ctx.restore();
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// INFO BAR
+// ═══════════════════════════════════════════════════════
+function updateInfoBar(s) {
+  if(s.mode==='verkettung') return;
+  const Rm=R2(s.rz);
+  const p=[s.px,s.py];
+  const t=[s.tx,s.ty];
+  let formula='', result='', insight='';
+
+  if(s.mode==='passiv' || s.mode==='vergleich') {
+    const pL=mulM2V2(transposeM2(Rm),[p[0]-t[0],p[1]-t[1]]);
+    formula='ᴸp = Rᵀ · (ᵂp – D_L)';
+    result=`ᴸp = (${pL[0].toFixed(4)}, ${pL[1].toFixed(4)})ᵀ`;
+    insight='Punkt bleibt geometrisch fix — nur die Beschreibung wechselt das KoSy';
+  } else {
+    const pr=mulM2V2(Rm,p);
+    formula="ᵂp' = R(θ) · ᵂp";
+    result=`ᵂp' = (${pr[0].toFixed(4)}, ${pr[1].toFixed(4)})ᵀ`;
+    insight='Vektor dreht sich physisch — KoSy bleibt fix';
+  }
+  document.getElementById('infoFormula').textContent=formula;
+  document.getElementById('infoResult').textContent=result;
+  document.getElementById('infoInsight').textContent=insight;
+}
+
+// ═══════════════════════════════════════════════════════
+// MAIN UPDATE LOOP
+// ═══════════════════════════════════════════════════════
+let p2d_passiv, p2d_aktiv, p3d_main, p3d_passiv, p3d_aktiv;
+let p2d_chain_intr, p2d_chain_extr;
+
+function update() {
+  getSliders();
+  const s = state;
+
+  updateInfoBar(s);
+
+  if(s.mode==='passiv') {
+    const c2 = document.getElementById('c2d');
+    const c3 = document.getElementById('c3d');
+    if(!c2||!c3) return;
+    const pl=new Plot2D(c2); pl.resize(); pl.drawPassiv(s);
+    const p3=new Plot3D(c3); p3.resize(); p3.drawPassiv3D(s);
+
+  } else if(s.mode==='aktiv') {
+    const c2=document.getElementById('c2d');
+    const c3=document.getElementById('c3d');
+    if(!c2||!c3) return;
+    const pl=new Plot2D(c2); pl.resize(); pl.drawAktiv(s);
+    const p3=new Plot3D(c3); p3.resize(); p3.drawAktiv3D(s);
+
+  } else if(s.mode==='vergleich') {
+    const cp=document.getElementById('cPassiv');
+    const ca=document.getElementById('cAktiv');
+    if(!cp||!ca) return;
+    const plP=new Plot2D(cp); plP.resize(); plP.drawPassiv(s);
+    const plA=new Plot2D(ca); plA.resize(); plA.drawAktiv(s);
+
+  } else { // verkettung
+    const ci=document.getElementById('cIntr');
+    const ce=document.getElementById('cExtr');
+    if(!ci||!ce) return;
+    const p3i=new Plot3D(ci); p3i.resize(); p3i.drawChain(true,s.chainStep,s);
+    const p3e=new Plot3D(ce); p3e.resize(); p3e.drawChain(false,s.chainStep,s);
+  }
+}
+
+// Init
+layoutForMode();
+update();
+
+// Resize handler
+window.addEventListener('resize', ()=>{ setTimeout(update,50); });
+</script>
+</body>
+</html>
