@@ -1,0 +1,2251 @@
+<!DOCTYPE html>
+<!--
+  ╔══════════════════════════════════════════════════════════════╗
+  ║  GAV 09 – Pfad- und Geschwindigkeitsregelung                 ║
+  ║  Interaktive Lern-GUI                                        ║
+  ╚══════════════════════════════════════════════════════════════╝
+
+  DATEISTRUKTUR auf einen Blick:
+  ─────────────────────────────────────────────────────────────
+  1.  <head>          → Metadaten + CSS (alles was das Aussehen bestimmt)
+  2.  <body>          → HTML-Struktur (was auf der Seite steht)
+       ├─ <header>   → Titelleiste oben
+       ├─ <nav>      → Tab-Buttons (Modul 1–4)
+       └─ <div>×4   → Inhalt der 4 Module (nur das aktive wird gezeigt)
+  3.  <script>        → JavaScript-Logik (Simulation + Animation)
+
+
+-->
+
+<html lang="de">
+
+<!-- ═══════════════════════════════════════════════════════════
+     HEAD — wird nicht angezeigt, konfiguriert die Seite
+════════════════════════════════════════════════════════════ -->
+<head>
+ 
+  <meta charset="UTF-8">
+
+  <!-- Damit die Seite auf Handys skaliert (hier nicht so wichtig) -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Text im Browser-Tab -->
+  <title>GAV 09 – Pfad- & Geschwindigkeitsregelung</title>
+
+  <!-- ══════════════════════════════════════════════════════════
+       CSS 
+       Syntax:  selektor { eigenschaft: wert; }
+       ══════════════════════════════════════════════════════════ -->
+  <style>
+
+    /* Google Fonts laden — IBM Plex Mono (für Code/Zahlen)
+       und IBM Plex Sans (für normalen Text)
+       Das @import lädt die Schrift von einem externen Server */
+    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+
+    /* ── CSS-VARIABLEN ──────────────────────────────────────────
+       :root = das Wurzelelement (die ganze Seite)
+       Aufruf später: color: var(--text);  */
+    :root {
+      --bg:       #ffffff;              /* Hintergrund (weiß)            */
+      --bg2:      #f4f6f9;              /* Sidebar-Hintergrund           */
+      --bg3:      #e8ecf1;              /* Karten-Hintergrund            */
+      --border:   rgba(0,0,0,0.10);    /* Rahmen (sehr dezent)          */
+      --border2:  rgba(0,0,0,0.18);    /* Rahmen (etwas sichtbarer)     */
+      --text:     #1a1d24;              /* Normaler Text (dunkel)        */
+      --muted:    #5a6271;              /* Gedämpfter Text (grau)        */
+      --tum:      #3070b3;              /* TUM-Blau (dunkel)             */
+      --tum-light:#4a90d9;              /* TUM-Blau (hell) → Modul 1     */
+      --amber:    #f59e0b;              /* Orange → Modul 2 Pure Pursuit */
+      --green:    #10b981;              /* Grün   → Modul 3 PID          */
+      --coral:    #f43f5e;              /* Rot    → Fehler               */
+      --purple:   #8b5cf6;              /* Lila   → Modul 4 MPC          */
+      --mono:     'IBM Plex Mono', monospace;
+      --sans:     'IBM Plex Sans',  sans-serif;
+    }
+
+    /* ── RESET ─────────────────────────────────────────────────
+       Jeder Browser hat eigene Standard-Abstände.
+       margin/padding 0        → Keine ungewollten Abstände */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ── BODY (die ganze Seite) ────────────────────────────────
+       min-height: 100vh  → mindestens die volle Bildschirmhöhe
+       overflow-x: hidden → kein horizontales Scrollen */
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 14px;
+      line-height: 1.6;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── HEADER (Titelleiste oben) ─────────────────────────────
+       position: sticky + top: 0  → bleibt beim Scrollen oben kleben
+       z-index: 100               → liegt über allem anderen
+       display: flex              → Kinder nebeneinander anordnen
+       align-items: center        → vertikal zentriert */
+    header {
+      border-bottom: 1px solid var(--border);
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      background: var(--bg2);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    
+    .tum-badge {
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--tum-light);
+      letter-spacing: 2px;       /* Buchstabenabstand vergrößern */
+      text-transform: uppercase;
+      border: 1px solid var(--tum);
+      padding: 3px 8px;
+      border-radius: 3px;        /* leicht abgerundete Ecken */
+    }
+
+    /* ── NAV-LEISTE (Tab-Buttons) ──────────────────────────────
+       display: flex     → Buttons nebeneinander
+       overflow-x: auto  → auf kleinen Bildschirmen scrollbar */
+    .nav {
+      display: flex;
+      gap: 2px;
+      padding: 12px 24px 0;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg2);
+      overflow-x: auto;
+    }
+
+    /* Jeder Tab-Button */
+    .nav-btn {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      padding: 10px 20px;
+      border-bottom: 2px solid transparent; /* unsichtbarer Unterstrich */
+      transition: all 0.2s;                 /* weicher Übergang beim Hover */
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Die Nummer im Kreis links im Tab-Button */
+    .nav-btn .num {
+      width: 18px; height: 18px;
+      border-radius: 3px;
+      background: var(--bg3);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px;
+    }
+
+    /* Hover-Effekt: heller werden */
+    .nav-btn:hover { color: var(--text); }
+
+    /* Aktiver Tab: blaue Farbe + Unterstrich sichtbar */
+    .nav-btn.active {
+      color: var(--tum-light);
+      border-bottom-color: var(--tum-light);
+    }
+    .nav-btn.active .num { background: var(--tum); color: #fff; }
+
+    /* ── HAUPTLAYOUT ────────────────────────────────────────────
+       display: grid            → CSS Grid Layout
+       grid-template-columns    → 300px Sidebar | Rest für Inhalt
+       display: none / active   → Module ein-/ausblenden */
+    .main { display: none; }
+    .main.active {
+      display: grid;
+      grid-template-columns: 300px 1fr;   /* 2 Spalten */
+      min-height: calc(100vh - 100px);    /* volle Höhe minus Header */
+    }
+
+    /* ── SIDEBAR (linke Spalte) ─────────────────────────────────
+       display: flex + flex-direction: column → Elemente untereinander */
+    .sidebar {
+      border-right: 1px solid var(--border);
+      padding: 24px;
+      background: var(--bg2);
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* Überschrift in der Sidebar mit farbigem Akzentbalken links
+       Das ::before ist ein "Pseudo-Element" — wird per CSS eingefügt
+       ohne extra HTML zu schreiben */
+    .sidebar h2 {
+      font-size: 15px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .sidebar h2::before {
+      content: '';             /* Pseudo-Element braucht content (auch leer) */
+      display: block;
+      width: 3px; height: 16px;
+      border-radius: 2px;
+    }
+    /* Jedes Modul bekommt eine andere Farbe für den Balken
+       #m1 .sidebar h2::before = "Innerhalb von #m1, der ::before von h2 in .sidebar" */
+    #m1 .sidebar h2::before { background: var(--tum-light); }
+    #m2 .sidebar h2::before { background: var(--amber); }
+    #m3 .sidebar h2::before { background: var(--green); }
+    #m4 .sidebar h2::before { background: var(--purple); }
+
+    /* ── SLIDER-GRUPPE (Label + Slider) ─────────────────────────*/
+    .control-group { display: flex; flex-direction: column; gap: 8px; }
+
+    /* Label-Zeile: Name links, aktueller Wert rechts
+       justify-content: space-between → maximaler Abstand zwischen Kindern */
+    .control-label {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* Der Wert rechts im Label (z.B. "0.5") */
+    .control-label span {
+      font-weight: 600;
+      color: var(--text);
+      background: var(--bg3);
+      padding: 2px 8px;
+      border-radius: 3px;
+      font-size: 12px;
+    }
+
+    /* ── RANGE-SLIDER STYLING ────────────────────────────────────
+       -webkit-appearance: none  → eigenes Design erlauben
+       ::-webkit-slider-thumb   → der Ziehknopf */
+    input[type=range] {
+      width: 100%;
+      -webkit-appearance: none;
+      height: 4px;
+      background: var(--bg3);
+      border-radius: 2px;
+      outline: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px; height: 14px;
+      border-radius: 50%;           /* rund = Kreis */
+      background: var(--tum-light);
+      cursor: pointer;
+    }
+    /* Modulspezifische Slider-Farben */
+    #m2 input[type=range]::-webkit-slider-thumb { background: var(--amber); }
+    #m3 input[type=range]::-webkit-slider-thumb { background: var(--green); }
+    #m4 input[type=range]::-webkit-slider-thumb { background: var(--purple); }
+
+    /* ── MODE-BUTTONS (P / PD / PID Schritt-Modus) ──────────────*/
+    .mode-row { display: flex; gap: 4px; margin-top: 4px; }
+    .mode-btn {
+      flex: 1; padding: 7px 4px; border: 1px solid var(--border2);
+      background: var(--bg3); border-radius: 4px; cursor: pointer;
+      font-family: var(--mono); font-size: 11px; font-weight: 600;
+      color: var(--muted); transition: all 0.15s; letter-spacing: 0.5px;
+    }
+    .mode-btn:hover { color: var(--text); }
+    #m3 .mode-btn.active { background: var(--green); color: #fff; border-color: var(--green); }
+    .mode-explain {
+      font-size: 11px; color: var(--muted); line-height: 1.55;
+      padding: 6px 2px 0; min-height: 48px;
+    }
+    input[type=range]:disabled { opacity: 0.3; pointer-events: none; }
+
+    /* ── SISO vs MIMO Vergleichsblock ───────────────────────────*/
+    .compare-box {
+      display: grid; grid-template-columns: 1fr 24px 1fr;
+      gap: 4px; font-size: 10px; font-family: var(--mono); line-height: 1.6;
+    }
+    .compare-pid {
+      background: var(--tum) + '18'; border: 1px solid var(--tum);
+      border-radius: 4px; padding: 7px 8px; color: var(--tum-light);
+      background: rgba(48,112,179,0.08);
+    }
+    .compare-mpc {
+      border: 1px solid var(--purple); border-radius: 4px;
+      padding: 7px 8px; color: var(--purple);
+      background: rgba(139,92,246,0.08);
+    }
+    .compare-pid b, .compare-mpc b { display: block; font-size: 11px; margin-bottom: 3px; }
+    .compare-vs { display: flex; align-items: center; justify-content: center;
+      font-size: 10px; font-weight: 600; color: var(--muted); }
+
+    /* ── Constraint-Bar ─────────────────────────────────────────*/
+    .constraint-bar-wrap { position: relative; height: 18px; background: var(--bg3);
+      border-radius: 3px; border: 1px solid var(--border2); overflow: hidden; margin-top: 4px; }
+    .constraint-bar-fill { position: absolute; top: 0; bottom: 0; background: rgba(139,92,246,0.25);
+      transition: left 0.05s, width 0.05s; }
+    .constraint-bar-center { position: absolute; left: 50%; top: 0; bottom: 0;
+      width: 1px; background: var(--border2); }
+    .constraint-bar-marker { position: absolute; top: 2px; bottom: 2px; width: 4px;
+      border-radius: 2px; background: var(--purple); transition: left 0.05s; }
+    .constraint-bar-marker.clamped { background: var(--coral); }
+    .constraint-bar-label { font-family: var(--mono); font-size: 9px; color: var(--muted);
+      display: flex; justify-content: space-between; margin-top: 2px; }
+
+    /* ── FORMEL-BOX ─────────────────────────────────────────────
+       Dunkler Kasten mit Formeln aus der Vorlesung */
+    .formula-box {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px 14px;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--tum-light);
+      line-height: 1.8;
+    }
+    #m2 .formula-box { color: var(--amber); }
+    #m3 .formula-box { color: var(--green); }
+    #m4 .formula-box { color: var(--purple); }
+    .formula-box .comment { color: var(--muted); font-size: 11px; }
+
+    /* ── RECHTE SEITE (Canvas-Bereich) ──────────────────────────
+       flex-direction: column → Elemente untereinander stapeln */
+    .canvas-area {
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      background: var(--bg);
+    }
+
+    /* ── CANVAS-ELEMENT ─────────────────────────────────────────
+       width: 100% → nimmt die volle Breite des Elternelements */
+    canvas {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--bg2);
+      width: 100%;
+    }
+
+    /* ── STATISTIK-KARTEN (obere Zeile) ─────────────────────────*/
+    .stats-row { display: flex; gap: 12px; }
+    .stat-card {
+      flex: 1;                    /* alle Karten gleich breit */
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 14px;
+    }
+    .stat-card .label {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 4px;
+    }
+    .stat-card .value {
+      font-family: var(--mono);
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--tum-light);    /* Standardfarbe Modul 1 */
+    }
+    /* Modulspezifische Wert-Farben */
+    #m2 .stat-card .value { color: var(--amber); }
+    #m3 .stat-card .value { color: var(--green); }
+    #m4 .stat-card .value { color: var(--purple); }
+
+    /* ── INFO-CHIP (Hinweis-Leiste) ──────────────────────────────
+       border-left: 2px → farbiger Balken links */
+    .info-chip {
+      background: var(--bg3);
+      border-left: 2px solid var(--tum-light);
+      padding: 8px 12px;
+      font-size: 12px;
+      color: var(--muted);
+      border-radius: 0 4px 4px 0;
+      line-height: 1.5;
+    }
+    #m2 .info-chip { border-left-color: var(--amber); }
+    #m3 .info-chip { border-left-color: var(--green); }
+    #m4 .info-chip { border-left-color: var(--purple); }
+
+    /* ── Takeaway-Box ────────────────────────────────────────────*/
+    .takeaway {
+      margin-top: 10px;
+      padding: 10px 12px;
+      background: var(--bg3);
+      border-left: 3px solid var(--tum-light);
+      border-radius: 0 6px 6px 0;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+    .takeaway strong {
+      display: block;
+      font-size: 10px;
+      font-family: var(--mono);
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--muted);
+      margin-bottom: 5px;
+    }
+    .takeaway ul { margin: 0; padding-left: 14px; color: var(--text); }
+    .takeaway li { margin-bottom: 2px; }
+    #m2 .takeaway { border-left-color: var(--amber); }
+    #m3 .takeaway { border-left-color: var(--green); }
+    #m4 .takeaway { border-left-color: var(--purple); }
+
+    /* ── Slider-Gruppenüberschrift ───────────────────────────────*/
+    .slider-group-label {
+      font-size: 10px;
+      font-family: var(--mono);
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--muted);
+      margin: 12px 0 4px 0;
+      padding-bottom: 4px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* ── BUTTON ──────────────────────────────────────────────────
+       transition: all 0.15s → weicher Hover-Übergang */
+    .btn {
+      background: var(--bg3);
+      border: 1px solid var(--border2);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 11px;
+      padding: 8px 16px;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn:hover { border-color: var(--tum-light); color: var(--tum-light); }
+    .btn-row { display: flex; gap: 8px; }
+
+    /* Trennlinie */
+    .divider { border: none; border-top: 1px solid var(--border); }
+
+    /* Canvas-Höhen werden ausschließlich per JavaScript (resizeAll) gesetzt */
+    #canvas3b { height: 160px; }
+    #canvas3c { height: 180px; }
+    #canvas4a { height: 260px; }
+
+  </style>
+</head>
+
+<!-- ═══════════════════════════════════════════════════════════
+     BODY — alles was der Browser anzeigt
+     Jedes Element ist ein "Tag": <tag>Inhalt</tag>
+════════════════════════════════════════════════════════════ -->
+<body>
+
+  <!-- ── HEADER: Titelleiste oben ─────────────────────────── -->
+  <header>
+    <div class="tum-badge">TUM</div>
+    <h1><span>GAV 09</span> — Pfad- und Geschwindigkeitsregelung</h1>
+  </header>
+
+  <!-- ── NAV: Tab-Leiste mit 4 Buttons ────────────────────────
+       onclick="showModule(2)" → ruft die JS-Funktion auf wenn geklickt
+       class="nav-btn"         → Style aus CSS anwenden -->
+  <div class="nav">
+    <button class="nav-btn active" onclick="showModule(1)">
+      <span class="num">1</span> Regelkreis
+    </button>
+    <button class="nav-btn" onclick="showModule(2)">
+      <span class="num">2</span> Pure Pursuit
+    </button>
+    <button class="nav-btn" onclick="showModule(3)">
+      <span class="num">3</span> PID-Regler
+    </button>
+    <button class="nav-btn" onclick="showModule(4)">
+      <span class="num">4</span> MPC
+    </button>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════
+       MODUL 1 — REGELKREIS
+       id="m1"           → eindeutige ID, referenziert in CSS und JS
+       class="main active" → "active" macht es sichtbar (display: grid)
+  ══════════════════════════════════════════════════════════ -->
+  <div id="m1" class="main active">
+
+    <!-- Linke Spalte: Beschreibung + Slider -->
+    <div class="sidebar">
+      <h2>Regelkreis</h2>
+      <p>Fahrzeugbezug: <b>Führungsgröße w</b> = Sollspur/Trajektorie · <b>Regelgröße y</b> = Fahrzeugposition · <b>Stellgröße u</b> = Lenkwinkel δ. Querführung (Lenkwinkel) und Längsführung (Beschleunigung/Bremsen) sind getrennte Regelkreise — hier nur Querführung.</p>
+      <hr class="divider">
+
+      <div class="control-group">
+        <div class="control-label">
+          Führungsgröße w (Sollspur)
+          <span id="v1-ref">0</span>
+        </div>
+        <input type="range" id="s1-ref" min="-120" max="120" value="0" step="1">
+      </div>
+
+      <div class="control-group">
+        <div class="control-label">Reglerverstärkung K <span id="v1-k">0.5</span></div>
+        <input type="range" id="s1-k" min="0.1" max="3" value="0.5" step="0.1">
+      </div>
+
+      <div class="control-group">
+        <div class="control-label">Störgröße d (z.B. Seitenwind) <span id="v1-d">0</span></div>
+        <input type="range" id="s1-d" min="-60" max="60" value="0" step="1">
+      </div>
+
+      <div class="control-group">
+        <div class="control-label">Messrauschen Amplitude (Sensor) <span id="v1-n">0</span></div>
+        <input type="range" id="s1-n" min="0" max="40" value="0" step="1">
+      </div>
+
+      <hr class="divider">
+
+      <div class="formula-box">
+        <div class="comment">// Vorlesungsbegriffe</div>
+        e(t) = w(t) − y<sub>m</sub>(t) <span class="comment">Regelabweichung</span><br>
+        u(t) = K · e(t) &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment"> Stellgröße</span><br>
+        y<sub>m</sub> = y + n &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment"> Messgröße + Rauschen</span><br>
+        <span class="comment" style="margin-top:5px;display:block">// Fahrzeugspezifisch (Modul 3):</span>
+        <span class="comment"> e = −y (lateraler Fehler, Vorzeichenkonvention</span>
+        <span class="comment"> der Vorlesung: δ = Kp·(−y))</span>
+      </div>
+
+      <div class="info-chip">
+        K↑ = schnellere Anpassung und kleinerer bleibender Fehler — dieses PT1-Modell schwingt nicht, reagiert aber monoton schneller. Störgröße d = externer Einfluss (Seitenwind, Steigung). Messrauschen σ↑ = Regler reagiert auf Sensorfehler statt echten Abstand.
+      </div>
+    </div>
+
+    <!-- Rechte Spalte: Canvas + Stats -->
+    <div class="canvas-area">
+
+      <!-- Statistik-Karten oben — Werte werden von JS gesetzt -->
+      <div class="stats-row">
+        <div class="stat-card"><div class="label">Regelabw. e(t)</div><div class="value" id="st1-e" style="color:#f43f5e">0.0</div></div>
+        <div class="stat-card"><div class="label">Stellgröße u(t)</div><div class="value" id="st1-u" style="color:#4a90d9">0.0</div></div>
+        <div class="stat-card"><div class="label">Regelgröße y(t)</div><div class="value" id="st1-y" style="color:#6b7280">0.0</div></div>
+        <div class="stat-card"><div class="label">Messgröße yₘ</div><div class="value" id="st1-ym" style="color:#10b981">0.0</div></div>
+      </div>
+
+      <!-- Canvas: leere Zeichenfläche — JS zeichnet hier alles drauf
+           id="canvas1" → JavaScript referenziert es mit getElementById -->
+      <canvas id="canvas1"></canvas>
+      <canvas id="canvas1b"></canvas>
+
+      <div class="info-chip">
+        Klicke auf die Canvas um den Sollwert direkt zu setzen · Bewege den "Störung"-Slider um externe Einflüsse zu simulieren
+      </div>
+      <div class="takeaway">
+        <strong>Key Takeaways</strong>
+        <ul>
+          <li>Der Lenkwinkel wird direkt proportional zum Fehler berechnet: <b>δ = Kp · (−y)</b> — je größer die Abweichung, desto stärker die Korrektur.</li>
+          <li>Reine P-Regelung kann auf einem PT1-System nicht schwingen — auf einem <b>Fahrzeug mit Lenkintegration</b> (Modul 3) entsteht jedoch ein Doppelintegrator, der ohne D-Anteil instabil wird.</li>
+          <li>Der Regelfehler e(t) beschreibt hier den lateralen Abstand zum Sollwert — die zweite Komponente, der <b>Heading-Fehler</b> (Winkelabweichung), wird in Modul 3 eingeführt.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════
+       MODUL 2 — PURE PURSUIT
+       Kein "active" → class="main" → display: none → unsichtbar
+  ══════════════════════════════════════════════════════════ -->
+  <div id="m2" class="main">
+    <div class="sidebar">
+      <h2>Pure Pursuit</h2>
+      <p>Das Fahrzeug verfolgt immer einen Zielpunkt auf dem Pfad, der genau die Lookahead-Distanz L voraus liegt. Der Lenkwinkel ergibt sich direkt aus der Geometrie.</p>
+      <hr class="divider">
+
+      <div class="control-group">
+        <div class="control-label">Lookahead L₁ <span id="v2-L">60</span> px</div>
+        <input type="range" id="s2-L" min="20" max="150" value="60" step="5">
+      </div>
+      <div class="control-group">
+        <div class="control-label">Vergleich L₂ (Ghost) <span id="v2-L2">120</span> px</div>
+        <input type="range" id="s2-L2" min="20" max="150" value="120" step="5">
+      </div>
+      <div class="control-group">
+        <div class="control-label">Geschwindigkeit v <span id="v2-v">2.0</span></div>
+        <input type="range" id="s2-v" min="0.5" max="4" value="2" step="0.5">
+      </div>
+
+      <hr class="divider">
+
+      <div class="formula-box">
+        <div class="comment">// Geometrie (l = Radstand)</div>
+        κ = 2·sin(α) / L<br>
+        r = L² / 2|y|<br>
+        δ = arctan(2·l·sin(α) / L)
+        <div class="comment" style="margin-top:6px">// y = lateral, d = longitudinal</div>
+        <div class="comment">// L² = d² + y² (Pythagoras)</div>
+      </div>
+
+      <hr class="divider">
+
+      <div class="stats-row" style="flex-direction:column; gap:8px;">
+        <div class="stat-card"><div class="label">Lateraler Fehler y</div><div class="value" id="st2-y">0.0</div></div>
+        <div class="stat-card"><div class="label">Kurvenradius r</div><div class="value" id="st2-r">∞</div></div>
+        <div class="stat-card"><div class="label">Lenkwinkel δ</div><div class="value" id="st2-d">0°</div></div>
+      </div>
+
+      <div class="info-chip">Wegpunkte (●) alle 25 px auf dem Pfad — wie diskrete GPS-Wegpunkte. Pure Pursuit interpoliert zwischen den zwei Punkten, die den Lookahead-Kreis schneiden.</div>
+      <div class="info-chip">L₁ (orange) vs. L₂ Ghost (lila): kleines L → nervöse Kurzkorrekturen · großes L → träge, schneidet Kurven ab.</div>
+    </div>
+
+    <div class="canvas-area">
+      <canvas id="canvas2"></canvas>
+      <div class="info-chip">Klicke auf die Canvas um eine neue Startposition zu setzen · Die orangene Linie zeigt den Lookahead-Kreis</div>
+      <div class="takeaway">
+        <strong>Key Takeaways</strong>
+        <ul>
+          <li>Pure Pursuit braucht kein Fahrzeugmodell — nur Geometrie zwischen Fahrzeug und Zielpunkt.</li>
+          <li>Kleines L: präziser Pfad, aber reaktiv und instabil bei hoher Geschwindigkeit. Enge Krümmungen können gegen Fahrdynamik verstoßen.</li>
+          <li>Großes L: gleichmäßigeres Fahrverhalten, aber enge Kurven werden abgeschnitten — L ist der einzige Tuning-Parameter.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════
+       MODUL 3 — PID-REGLER
+  ══════════════════════════════════════════════════════════ -->
+  <div id="m3" class="main">
+    <div class="sidebar">
+      <h2>PID-Regler</h2>
+      <p>Der PID-Regler minimiert den lateralen Fehler e<sub>y</sub>. Die Winkelabweichung e<sub>ψ</sub> wird zur Analyse angezeigt — sie geht nicht direkt in u ein, wird aber indirekt durch die Fahrzeugdynamik (Doppelintegrator) beeinflusst.</p>
+      <hr class="divider">
+
+      <div class="control-group">
+        <div class="control-label" style="font-weight:600;color:var(--text)">Schritt-Modus</div>
+        <div class="mode-row">
+          <button class="mode-btn" onclick="setM3Mode('P')">P</button>
+          <button class="mode-btn" onclick="setM3Mode('PD')">PD</button>
+          <button class="mode-btn active" onclick="setM3Mode('PID')">PID</button>
+        </div>
+        <div class="mode-explain" id="m3-mode-explain">Vollständiger PID: P korrigiert Abweichung, D dämpft Schwingungen, I eliminiert bleibenden Restfehler.</div>
+      </div>
+
+      <hr class="divider">
+
+      <div class="slider-group-label">Regler-Parameter</div>
+      <div class="control-group">
+        <div class="control-label">K<sub>p</sub> (Proportional) <span id="v3-kp">1.2</span></div>
+        <input type="range" id="s3-kp" min="0" max="5" value="1.2" step="0.1">
+      </div>
+      <div class="control-group">
+        <div class="control-label">K<sub>d</sub> (Differenzial) <span id="v3-kd">0.5</span></div>
+        <input type="range" id="s3-kd" min="0" max="5" value="0.5" step="0.1">
+      </div>
+      <div class="control-group">
+        <div class="control-label">K<sub>i</sub> (Integral) <span id="v3-ki">0.0</span></div>
+        <input type="range" id="s3-ki" min="0" max="2" value="0" step="0.05">
+      </div>
+      <div class="slider-group-label">Fahrzeug</div>
+      <div class="control-group">
+        <div class="control-label">Geschwindigkeit <span id="v3-v">2.0</span></div>
+        <input type="range" id="s3-v" min="0.5" max="5" value="2" step="0.5">
+      </div>
+
+      <hr class="divider">
+
+      <div class="formula-box">
+        <div class="comment">// PID-Stellgröße</div>
+        u = Kp·e<sub>y</sub> + Ki·∫e<sub>y</sub> dt + Kd·ė<sub>y</sub><br>
+        e<sub>y</sub> = lateraler Fehler<br>
+        e<sub>ψ</sub> = Winkel Fahrzeug − Pfadtangente<br>
+        <div class="comment" style="margin-top:5px">// Leaky Integrator (kein Anti-Windup!):</div>
+        ∫e ← ∫e · 0.995 + e<br>
+        <div class="comment">// Echtes Anti-Windup: Integration stoppen wenn Aktor sättigt (|heading| = 0.6). Leaky Integrator begrenzt nur das langfristige Wachsen.</div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn" onclick="resetPID()">↺ Reset</button>
+      </div>
+
+      <div class="info-chip">Tuning-Heuristik Ziegler-Nichols: Kp so weit erhöhen bis Dauerschwingung einsetzt, daraus P/I/D-Parameter ableiten. Alternative: Optimierungsalgorithmen. Beide Ansätze sind empirisch — es gibt kein universelles Rezept.</div>
+      <div class="info-chip">Kp↑ = schneller aber Überschwingen · Kd↑ = dämpft Schwingungen (erst P→PD testen) · Ki↑ = eliminiert Restfehler (zuletzt hinzufügen)</div>
+    </div>
+
+    <div class="canvas-area">
+      <div class="stats-row">
+        <div class="stat-card"><div class="label">Lat. Fehler eᵧ</div><div class="value" id="st3-e" style="color:#f43f5e">0.0</div></div>
+        <div class="stat-card"><div class="label">Winkel eᵩ</div><div class="value" id="st3-psi" style="color:#f59e0b">0°</div></div>
+        <div class="stat-card"><div class="label">P-Anteil</div><div class="value" id="st3-p" style="color:#4a90d9">0.0</div></div>
+        <div class="stat-card"><div class="label">I-Anteil</div><div class="value" id="st3-i" style="color:#10b981">0.0</div></div>
+        <div class="stat-card"><div class="label">D-Anteil</div><div class="value" id="st3-d" style="color:#f97316">0.0</div></div>
+        <div class="stat-card"><div class="label">Stellgröße u</div><div class="value" id="st3-u" style="color:#6b7280">0.0</div></div>
+      </div>
+      <!-- Zwei Canvas: oben Fahrzeug, unten Fehlerkurve -->
+      <canvas id="canvas3a"></canvas>
+      <canvas id="canvas3b"></canvas>
+      <canvas id="canvas3c"></canvas>
+      <div class="takeaway">
+        <strong>Key Takeaways</strong>
+        <ul>
+          <li>P hinterlässt einen <b>bleibenden Fehler</b> — I summiert den vergangenen Gesamtfehler auf und gleicht ihn aus.</li>
+          <li>PID-Tuning ist <b>empirisch</b> und systemabhängig — kein festes Rezept, sondern Abstimmung nach gewünschten Leistungsmerkmalen (z. B. Einschwingzeit, stationärer Fehler).</li>
+          <li>PID ist ein <b>SISO-Regler</b> — bei mehreren Stellgrößen (Lenkwinkel + Beschleunigung) können unabhängige PID-Regler dynamisch unsichere Befehle erzeugen → Motivation für MPC.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════
+       MODUL 4 — MPC
+  ══════════════════════════════════════════════════════════ -->
+  <div id="m4" class="main">
+    <div class="sidebar">
+      <h2>MPC – Prädiktive Regelung</h2>
+      <p>MPC plant N Schritte voraus, optimiert eine Steuersequenz und führt nur den ersten Befehl aus. Dann wird neu geplant (Receding Horizon).</p>
+
+      <div class="compare-box">
+        <div class="compare-pid">
+          <b>PID — SISO</b>
+          Ein Regler pro Achse, unabhängig voneinander. Kopplung zwischen Quer- und Längsführung nicht berücksichtigt → kann physikalisch undurchführbare Befehle erzeugen.
+        </div>
+        <div class="compare-vs">vs.</div>
+        <div class="compare-mpc">
+          <b>MPC — MIMO</b>
+          Ein Optimierer für alle Achsen gemeinsam. Kopplung explizit modelliert, Constraints direkt einbaubar, vorausschauend.
+        </div>
+      </div>
+
+      <hr class="divider">
+
+      <div class="slider-group-label">Vorausschau</div>
+      <div class="control-group">
+        <div class="control-label">Prädiktionshorizont N <span id="v4-N">8</span></div>
+        <input type="range" id="s4-N" min="2" max="20" value="8" step="1">
+      </div>
+      <div class="slider-group-label">Kostenfunktion</div>
+      <div class="control-group">
+        <div class="control-label">Gewicht Q (Pfadtreue) <span id="v4-Q">5.0</span></div>
+        <input type="range" id="s4-Q" min="0.1" max="20" value="5" step="0.5">
+      </div>
+      <div class="control-group">
+        <div class="control-label">Gewicht R (Steueraufwand) <span id="v4-R">1.0</span></div>
+        <input type="range" id="s4-R" min="0.1" max="20" value="1" step="0.5">
+      </div>
+      <div class="slider-group-label">Constraint</div>
+      <div class="control-group">
+        <div class="control-label">Constraint |u| ≤ <span id="v4-umax">0.40</span> rad</div>
+        <input type="range" id="s4-umax" min="0.05" max="0.5" value="0.4" step="0.05">
+        <div class="constraint-bar-wrap" id="cbar-wrap">
+          <div class="constraint-bar-fill" id="cbar-fill"></div>
+          <div class="constraint-bar-center"></div>
+          <div class="constraint-bar-marker" id="cbar-marker"></div>
+        </div>
+        <div class="constraint-bar-label"><span id="cbar-min">−0.40</span><span>u*</span><span id="cbar-max">+0.40</span></div>
+      </div>
+      <div class="slider-group-label">Fahrzeug</div>
+      <div class="control-group">
+        <div class="control-label">Geschwindigkeit <span id="v4-v">2.0</span></div>
+        <input type="range" id="s4-v" min="0.5" max="4" value="2" step="0.5">
+      </div>
+
+      <hr class="divider">
+
+      <div class="formula-box">
+        <div class="comment">// Kostenfunktion J (linearisiertes Modell)</div>
+        J = Σ [Q·e²ₖ + R·u²ₖ]<br>
+        <div class="comment">// über k = 1..N, subject to |u| ≤ u_max</div>
+        u* = argmin J &nbsp; s.t. Constraints
+      </div>
+
+      <div class="btn-row">
+        <button class="btn" onclick="resetMPC()">↺ Reset</button>
+      </div>
+
+      <div class="info-chip">Q↑ = Pfad wichtiger · R↑ = sanftere Inputs · N↑ = weiter vorausdenken · Constraint↓ = enger Lenkwinkel → Fahrzeug kann Kurven nicht mehr folgen</div>
+      <div class="info-chip">Hinweis: Hier wird ein linearisiertes Fahrzeugmodell verwendet (kein echter QP/NLP-Solver). Ein realer MPC nutzt nichtlineare Kinemtik und löst ein quadratisches Programm.</div>
+    </div>
+
+    <div class="canvas-area">
+      <div class="stats-row">
+        <div class="stat-card"><div class="label">Kostenfunktion J</div><div class="value" id="st4-J">0.0</div></div>
+        <div class="stat-card"><div class="label">Akt. Fehler e</div><div class="value" id="st4-e">0.0</div></div>
+        <div class="stat-card"><div class="label">Opt. Steuer u*</div><div class="value" id="st4-u">0.0</div></div>
+        <div class="stat-card"><div class="label">Constraint</div><div class="value" id="st4-c" style="color:var(--green)">ok</div></div>
+      </div>
+      <canvas id="canvas4a"></canvas>
+      <canvas id="canvas4b"></canvas>
+      <canvas id="canvas4c"></canvas>
+      <div class="info-chip">Lila Punkte = prädizierte Trajektorie (N Schritte voraus) · Grüne Linie = Referenzpfad · Weißer Punkt = Fahrzeug</div>
+      <div class="info-chip">⚠ Hinweis: Die Kostenfunktion J schwankt, weil der Optimierer nur wenige diskrete Kandidaten testet (grobes Raster) und der Referenzpfad variierende Krümmung hat. Bei gerader Strecke reicht u≈0, in Kurven wird ein großes u benötigt — der Regler springt zwischen diesen Kandidaten. Ein echter MPC mit feinerem Raster oder kontinuierlichem QP-Solver würde J deutlich glätten.</div>
+      <div class="info-chip">📊 Stellgrößenverlauf u*(t): R↑ dämpft die Ausschläge — der Regler lenkt sparsamer, auch wenn der Fehler größer wird. Q↑ macht die Ausschläge größer — Pfadtreue wird stärker gewichtet als Lenkkomfort. Greift der Constraint (|u*| = uMax), ist der Verlauf oben/unten abgeflacht: der Optimierer ist an seiner Grenze und kann nicht weiter korrigieren, selbst wenn J es verlangen würde.</div>
+      <div class="takeaway">
+        <strong>Key Takeaways</strong>
+        <ul>
+          <li>MPC plant N Schritte voraus: es wird eine <b>konstante Stellgröße u*</b> gesucht, die die Gesamtkosten über den Horizont minimiert — vorausschauend statt reaktiv. (Echtes MPC optimiert eine vollständige Sequenz u₀…u_{N-1} via QP-Solver.)</li>
+          <li>Ziel ist, direkt optimale Steuersignale zu finden, die bestimmete Leistungskriterien erfüllen.</li>
+          <li>Q/R-Verhältnis steuert den Trade-off: hohes Q → Pfadtreue, hohes R → sanfte Stellgröße.</li>
+          <li>Constraints berücksichtigen physische, betriebliche und sicherheitsrelevante Grenzen undsind direkt im Optimierungsproblem enthalten — Regler respektiert sie automatisch.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     JAVASCRIPT — Logik, Simulation und Animation
+
+     Läuft im Browser, kein Install nötig.
+
+     GRUNDKONZEPTE:
+     ─────────────────────────────────────────────────────────
+
+     document.getElementById('id')       → HTML-Element finden
+     element.textContent = 'text'        → Text setzen
+     element.classList.add('active')     → CSS-Klasse hinzufügen
+
+     canvas.getContext('2d')             → Zeichenkontext holen
+     ctx.beginPath() / moveTo / lineTo / stroke  → Linien zeichnen
+     ctx.fillRect(x, y, w, h)           → gefülltes Rechteck
+     ctx.arc(x, y, r, 0, Math.PI*2)    → Kreis
+════════════════════════════════════════════════════════════ -->
+<script>
+
+// ══════════════════════════════════════════════════════════════
+//  HILFSFUNKTIONEN
+// ══════════════════════════════════════════════════════════════
+
+// Canvas auf korrekte Pixelgröße setzen
+// (CSS width:100% skaliert optisch, aber Pixel-Auflösung bleibt falsch
+//  ohne diese Funktion → unscharfe Darstellung)
+function resize(canvas) {
+  const rect = canvas.parentElement.getBoundingClientRect();
+  canvas.width = rect.width - 48;  // minus Padding
+  canvas.height = parseInt(canvas.style.height || 340);
+}
+
+// Modul wechseln: altes verstecken, neues zeigen
+function showModule(n) {
+  // Alle Hauptbereiche verstecken
+  document.querySelectorAll('.main').forEach(m => m.classList.remove('active'));
+  // Alle Tabs deaktivieren
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  // Richtiges Modul aktivieren (id = "m1", "m2", ...)
+  document.getElementById('m' + n).classList.add('active');
+  // Richtigen Tab aktivieren (Index 0-basiert, daher n-1)
+  document.querySelectorAll('.nav-btn')[n-1].classList.add('active');
+  // Kurz warten damit Browser das Layout berechnet, dann Canvas-Größen setzen
+  setTimeout(() => { resizeAll(); }, 10);
+}
+
+// Alle Canvas-Größen aktualisieren
+function resizeAll() {
+  [canvas1, canvas1b, canvas2, canvas3a, canvas3b, canvas3c, canvas4a, canvas4b, canvas4c].forEach(c => {
+    const h = c.id === 'canvas1b' ? 180 : c.id === 'canvas3b' ? 160 : c.id === 'canvas3c' ? 180
+            : c.id === 'canvas4b' ? 100 : c.id === 'canvas4c' ? 100 : c.id === 'canvas4a' ? 260 : 260;
+    const rect = c.parentElement.getBoundingClientRect();
+    c.width = Math.max(rect.width - 48, 300);
+    c.height = h;
+  });
+}
+
+// Bei Fenstergröße-Änderung: Canvas neu skalieren
+window.addEventListener('resize', resizeAll);
+
+// ══════════════════════════════════════════════════════════════
+//  CANVAS-REFERENZEN
+//  getContext('2d') gibt das Zeichenwerkzeug zurück
+// ══════════════════════════════════════════════════════════════
+const canvas1  = document.getElementById('canvas1');
+const canvas1b = document.getElementById('canvas1b');
+const canvas2  = document.getElementById('canvas2');
+const canvas3a = document.getElementById('canvas3a');
+const canvas3b = document.getElementById('canvas3b');
+const canvas3c = document.getElementById('canvas3c');
+const canvas4a = document.getElementById('canvas4a');
+const canvas4b = document.getElementById('canvas4b');
+const canvas4c = document.getElementById('canvas4c');
+
+const ctx1  = canvas1.getContext('2d');
+const ctx1b = canvas1b.getContext('2d');
+const ctx2  = canvas2.getContext('2d');
+const ctx3a = canvas3a.getContext('2d');
+const ctx3b = canvas3b.getContext('2d');
+const ctx3c = canvas3c.getContext('2d');
+const ctx4a = canvas4a.getContext('2d');
+const ctx4b = canvas4b.getContext('2d');
+const ctx4c = canvas4c.getContext('2d');
+
+// ══════════════════════════════════════════════════════════════
+//  MODUL 1 — REGELKREIS
+//  Simuliert: ẏ = (u - y) / τ  (Verzögerungssystem 1. Ordnung)
+// ══════════════════════════════════════════════════════════════
+
+// Zustandsobjekt: alle Variablen gebündelt
+let m1 = {
+  y:    0,    // aktueller Istwert
+  hist: [],   // Historie aller vergangenen Werte
+  t:    0     // Zeitstempel
+};
+
+function drawRegelkreis() {
+  const W = canvas1.width, H = canvas1.height;
+
+  // Slider-Werte lesen: getElementById gibt das HTML-Element,
+  // .value gibt dessen aktuellen Wert als String zurück,
+  // parseFloat wandelt String → Zahl
+  const ref   = parseFloat(document.getElementById('s1-ref').value);
+  const K     = parseFloat(document.getElementById('s1-k').value);
+  const d     = parseFloat(document.getElementById('s1-d').value);
+  const sigma = parseFloat(document.getElementById('s1-n').value);
+
+  document.getElementById('v1-ref').textContent = ref.toFixed(0);
+  document.getElementById('v1-k').textContent   = K.toFixed(1);
+  document.getElementById('v1-d').textContent   = d.toFixed(0);
+  document.getElementById('v1-n').textContent   = sigma.toFixed(0);
+
+  // ── SIMULATION ──────────────────────────────────────────────
+  // Sensor misst Istwert + Rauschen → Messgröße ym
+  const noise = (Math.random() - 0.5) * 2 * sigma;
+  const ym = m1.y + noise;
+  // e(t) = Regelabweichung: Regler sieht ym, nicht y!
+  const e = ref - ym;
+  // u(t) = Stellgröße (P-Regler) + Störgröße d
+  const u = K * e + d;
+  // Systemdynamik: Verzögerungssystem 1. Ordnung
+  m1.y += (u - m1.y) * 0.04;
+
+  m1.hist.push({ t: m1.t, y: m1.y, ym, ref, e, u });
+  m1.t++;
+  if (m1.hist.length > W - 40) m1.hist.shift();
+
+  document.getElementById('st1-e').textContent  = e.toFixed(1);
+  document.getElementById('st1-u').textContent  = u.toFixed(1);
+  document.getElementById('st1-y').textContent  = m1.y.toFixed(1);
+  document.getElementById('st1-ym').textContent = ym.toFixed(1);
+
+  // ── ZEICHNEN ─────────────────────────────────────────────────
+  // clearRect = Canvas leeren bevor neu gezeichnet wird
+  ctx1.clearRect(0, 0, W, H);
+
+  // Hintergrund-Gitter (sehr dezent)
+  ctx1.strokeStyle = 'rgba(0,0,0,0.06)';
+  ctx1.lineWidth = 1;
+  for (let y = 0; y < H; y += 40) {
+    ctx1.beginPath();
+    ctx1.moveTo(0, y);
+    ctx1.lineTo(W, y);
+    ctx1.stroke();
+  }
+
+  // Hilfsfunktionen: Wert → Pixelposition umrechnen
+  // toY: Wert zwischen -200 und 200 → Pixelzeile auf Canvas
+  const toY = v => H/2 - (v / 200) * (H * 0.8);
+  // toX: Index in der Historie → Pixelspalte auf Canvas
+  const toX = (i, len) => 20 + (i / len) * (W - 40);
+
+  // Nulllinie (gestrichelt)
+  ctx1.strokeStyle = 'rgba(0,0,0,0.15)';
+  ctx1.lineWidth = 1;
+  ctx1.setLineDash([4, 4]);   // [Strichlänge, Lücke] in Pixel
+  ctx1.beginPath();
+  ctx1.moveTo(20, H/2);
+  ctx1.lineTo(W-20, H/2);
+  ctx1.stroke();
+  ctx1.setLineDash([]);        // zurücksetzen → durchgezogen
+
+  const N = m1.hist.length;
+  if (N < 2) return;
+
+  // Sollwert-Linie (gestrichelt, dunkelblau)
+  ctx1.strokeStyle = '#3070b3';
+  ctx1.lineWidth = 1.5;
+  ctx1.setLineDash([6, 4]);
+  ctx1.beginPath();
+  m1.hist.forEach((p, i) => {
+    const x = toX(i, N), y = toY(p.ref);
+    // Erster Punkt: moveTo (Stift aufsetzen)
+    // Folgende: lineTo (Linie ziehen)
+    i === 0 ? ctx1.moveTo(x, y) : ctx1.lineTo(x, y);
+  });
+  ctx1.stroke();
+  ctx1.setLineDash([]);
+
+  // Istwert-Linie (hell-blau)
+  ctx1.strokeStyle = '#4a90d9';
+  ctx1.lineWidth = 2;
+  ctx1.beginPath();
+  m1.hist.forEach((p, i) => {
+    const x = toX(i, N), y = toY(p.y);
+    i === 0 ? ctx1.moveTo(x, y) : ctx1.lineTo(x, y);
+  });
+  ctx1.stroke();
+
+  // Fehler-Füllung zwischen Soll und Ist (rot, transparent)
+  ctx1.fillStyle = 'rgba(244, 63, 94, 0.08)';
+  ctx1.beginPath();
+  // Obere Kante: Sollwert
+  m1.hist.forEach((p, i) => {
+    const x = toX(i, N);
+    i === 0 ? ctx1.moveTo(x, toY(p.ref)) : ctx1.lineTo(x, toY(p.ref));
+  });
+  // Untere Kante: Istwert (rückwärts)
+  for (let i = N-1; i >= 0; i--) {
+    const p = m1.hist[i];
+    ctx1.lineTo(toX(i, N), toY(p.y));
+  }
+  ctx1.closePath();
+  ctx1.fill();
+
+  // ym-Linie (grau, verrauscht) — zeigt was der Sensor sieht
+  if (m1.hist.length > 1 && sigma > 0) {
+    ctx1.strokeStyle = 'rgba(16,185,129,0.45)';
+    ctx1.lineWidth = 1;
+    ctx1.beginPath();
+    m1.hist.forEach((p, i) => {
+      const x = toX(i, N), y = toY(p.ym ?? p.y);
+      i === 0 ? ctx1.moveTo(x, y) : ctx1.lineTo(x, y);
+    });
+    ctx1.stroke();
+  }
+
+  // Beschriftungen (oben links)
+  ctx1.font = '11px IBM Plex Mono';
+  ctx1.fillStyle = '#4a90d9';
+  ctx1.fillText('y(t) Regelgröße', 24, 20);
+  ctx1.fillStyle = '#3070b3';
+  ctx1.fillText('w(t) Führungsgröße (gestrichelt)', 155, 20);
+  if (sigma > 0) {
+    ctx1.fillStyle = 'rgba(16,185,129,0.8)';
+    ctx1.fillText('yₘ Messgröße (Rauschen)', 24, 36);
+  }
+
+  // ── Live-Fahrzeugposition (rechts, Overlay) ──────────────────
+  const liveW = 120, liveX = W - liveW;
+  const cx = liveX + liveW / 2;
+  const refY    = toY(ref);
+  const vehicleY = toY(m1.y);
+
+  // Panel-Hintergrund
+  ctx1.fillStyle = 'rgba(244,246,249,0.95)';
+  ctx1.beginPath(); ctx1.roundRect(liveX, 4, liveW - 4, H - 8, 6); ctx1.fill();
+  ctx1.strokeStyle = 'rgba(0,0,0,0.08)'; ctx1.lineWidth = 1;
+  ctx1.beginPath(); ctx1.roundRect(liveX, 4, liveW - 4, H - 8, 6); ctx1.stroke();
+
+  // Label
+  ctx1.fillStyle = '#9ca3af'; ctx1.font = '9px IBM Plex Mono'; ctx1.textAlign = 'center';
+  ctx1.fillText('LIVE-POSITION', cx - 2, 16);
+
+  // Fahrbahnmarkierung (vertikale gestrichelte Mittellinie = Pfad)
+  ctx1.strokeStyle = 'rgba(48,112,179,0.25)'; ctx1.lineWidth = 6;
+  ctx1.setLineDash([12, 8]);
+  ctx1.beginPath(); ctx1.moveTo(cx, 22); ctx1.lineTo(cx, H - 10); ctx1.stroke();
+  ctx1.setLineDash([]);
+
+  // Sollwert w (horizontale blaue Linie)
+  ctx1.strokeStyle = '#3070b3'; ctx1.lineWidth = 2;
+  ctx1.beginPath(); ctx1.moveTo(liveX + 8, refY); ctx1.lineTo(W - 12, refY); ctx1.stroke();
+  ctx1.fillStyle = '#3070b3'; ctx1.font = 'bold 9px IBM Plex Mono'; ctx1.textAlign = 'right';
+  ctx1.fillText('w', W - 14, refY - 4);
+
+  // Fehler e (gestrichelt rot)
+  if (Math.abs(vehicleY - refY) > 3) {
+    ctx1.strokeStyle = 'rgba(244,63,94,0.6)'; ctx1.lineWidth = 1.5; ctx1.setLineDash([3, 3]);
+    ctx1.beginPath(); ctx1.moveTo(cx + 18, refY); ctx1.lineTo(cx + 18, vehicleY); ctx1.stroke();
+    ctx1.setLineDash([]);
+    ctx1.fillStyle = '#f43f5e'; ctx1.font = '9px IBM Plex Mono'; ctx1.textAlign = 'left';
+    ctx1.fillText('e', cx + 22, (refY + vehicleY) / 2 + 4);
+  }
+
+  // Fahrzeug (Rechteck + Pfeil)
+  ctx1.fillStyle = '#4a90d9';
+  ctx1.beginPath(); ctx1.roundRect(cx - 10, vehicleY - 14, 20, 22, 3); ctx1.fill();
+  ctx1.fillStyle = '#fff'; ctx1.font = 'bold 11px IBM Plex Mono'; ctx1.textAlign = 'center';
+  ctx1.fillText('▶', cx, vehicleY + 1);
+
+  ctx1.textAlign = 'left';
+
+  // Blockdiagramm auf separatem Canvas darunter
+  const Wb = canvas1b.width, Hb = canvas1b.height;
+  ctx1b.clearRect(0, 0, Wb, Hb);
+  drawBlockDiagram(ctx1b, Wb, Hb, e.toFixed(1), u.toFixed(1), ref.toFixed(0), m1.y.toFixed(1), ym.toFixed(1), d.toFixed(0), noise.toFixed(1));
+}
+
+// Animiertes Blockdiagramm — Regelkreis
+function drawBlockDiagram(ctx, W, H, e, u, w, y, ym, d, n) {
+  const bx = 8, by = 8;
+  const bw = W - 16, bh = H - 16;
+  const BH = 36;
+
+  // Panel-Hintergrund
+  ctx.fillStyle = 'rgba(244,246,249,0.97)';
+  ctx.strokeStyle = 'rgba(0,0,0,0.12)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 8); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#9ca3af'; ctx.font = '10px IBM Plex Mono';
+  ctx.fillText('REGELKREIS', bx + 12, by + 14);
+
+  const R1 = by + 54;    // Vorwärtspfad
+  const R2 = by + 124;   // Rückkopplungspfad
+
+  function blk(x, cy, ww, label, val, col) {
+    ctx.fillStyle = col + '22'; ctx.strokeStyle = col + 'bb';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.roundRect(x, cy - BH/2, ww, BH, 5); ctx.fill(); ctx.stroke();
+    ctx.textAlign = 'center'; ctx.fillStyle = col;
+    ctx.font = 'bold 11px IBM Plex Mono';
+    ctx.fillText(label, x + ww/2, cy - 3);
+    if (val !== null) {
+      ctx.font = '10px IBM Plex Mono';
+      ctx.fillText(val, x + ww/2, cy + 11);
+    }
+    ctx.textAlign = 'left';
+  }
+
+  function circ(cx, cy, r, sym, col) {
+    ctx.fillStyle = col + '22'; ctx.strokeStyle = col + 'bb'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = col; ctx.font = 'bold 13px IBM Plex Mono'; ctx.textAlign = 'center';
+    ctx.fillText(sym, cx, cy + 5); ctx.textAlign = 'left';
+  }
+
+  function arr(x1, y1, x2, y2) {
+    ctx.strokeStyle = 'rgba(0,0,0,0.30)'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+    const a = Math.atan2(y2 - y1, x2 - x1);
+    ctx.fillStyle = 'rgba(0,0,0,0.30)';
+    ctx.beginPath();
+    ctx.moveTo(x2, y2);
+    ctx.lineTo(x2 - 7*Math.cos(a - 0.45), y2 - 7*Math.sin(a - 0.45));
+    ctx.lineTo(x2 - 7*Math.cos(a + 0.45), y2 - 7*Math.sin(a + 0.45));
+    ctx.closePath(); ctx.fill();
+  }
+
+  function dashedLine(pts, col) {
+    ctx.strokeStyle = col || 'rgba(244,63,94,0.55)'; ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    pts.forEach(([x, y], i) => i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y));
+    ctx.stroke(); ctx.setLineDash([]);
+  }
+
+  function lbl(x, y, text, col) {
+    ctx.fillStyle = col || '#6b7280'; ctx.font = '9px IBM Plex Mono';
+    ctx.textAlign = 'center'; ctx.fillText(text, x, y); ctx.textAlign = 'left';
+  }
+
+  // ── Positionen proportional zur Panel-Breite ─────────────────
+  const wW    = bw * 0.13;  const xW    = bx + bw * 0.01;
+  const rEps  = 15;         const xEps  = bx + bw * 0.20;
+  const wReg  = bw * 0.16;  const xReg  = bx + bw * 0.24;
+  const rDj   = 11;         const xDj   = bx + bw * 0.45;
+  const wStr  = bw * 0.16;  const xStr  = bx + bw * 0.49;
+  const xYend = bx + bw * 0.70;
+  const wSens = bw * 0.19;  const xSens = bx + bw * 0.28;
+
+  // ── Blöcke ───────────────────────────────────────────────────
+  blk(xW,    R1, wW,    'Führungs-',     `größe w=${w}`, '#3070b3');
+  circ(xEps, R1, rEps,  'ε',                              '#f43f5e');
+  blk(xReg,  R1, wReg,  'Regler K',      `u = ${u}`,     '#4a90d9');
+  circ(xDj,  R1, rDj,   '+',                              '#f59e0b');
+  blk(xStr,  R1, wStr,  'Regelstrecke',  `y = ${y}`,     '#6b7280');
+
+  blk(xSens, R2, wSens, 'Sensor / Messglied', `yₘ = ${ym}`, '#10b981');
+
+  // ── Pfeile Vorwärtspfad ──────────────────────────────────────
+  arr(xW + wW,    R1, xEps - rEps,  R1);
+  arr(xEps + rEps, R1, xReg,        R1);
+  arr(xReg + wReg, R1, xDj - rDj,   R1);
+  arr(xDj + rDj,  R1, xStr,         R1);
+  arr(xStr + wStr, R1, xYend + 16,  R1);
+
+  ctx.fillStyle = '#6b7280'; ctx.font = 'bold 11px IBM Plex Mono';
+  ctx.textAlign = 'center'; ctx.fillText(`y=${y}`, xYend + 10, R1 + 4); ctx.textAlign = 'left';
+
+  // Störgröße d von oben
+  arr(xDj, R1 - 30, xDj, R1 - rDj);
+  lbl(xDj, R1 - 33, `d=${d}`, '#f59e0b');
+
+  // Messrauschen n von oben in Sensor
+  arr(xSens + wSens/2, R2 - 26, xSens + wSens/2, R2 - BH/2);
+  lbl(xSens + wSens/2, R2 - 29, `n=${n}`, '#10b981');
+
+  // Regelabweichung e
+  ctx.fillStyle = '#f43f5e'; ctx.font = '9px IBM Plex Mono';
+  ctx.textAlign = 'center'; ctx.fillText(`e=${e}`, xEps, R1 + 32); ctx.textAlign = 'left';
+
+  // ── Rückkopplungspfad (gestrichelt) ──────────────────────────
+  dashedLine([[xYend + 10, R1 + 18], [xYend + 10, R2], [xSens + wSens, R2]]);
+  dashedLine([[xSens, R2], [xEps, R2], [xEps, R1 + rEps]]);
+  arr(xEps, R2 + 2, xEps, R1 + rEps);
+
+  lbl(xSens + wSens/2, R2 + 22, 'Messgröße yₘ (Rückkopplung)', 'rgba(244,63,94,0.60)');
+}
+
+// Klick auf Canvas → Sollwert setzen
+canvas1.addEventListener('click', e => {
+  const rect = canvas1.getBoundingClientRect();
+  // Klick-Y-Position in Wert umrechnen (umgekehrte toY-Funktion)
+  const y = e.clientY - rect.top;
+  const val = ((canvas1.height/2 - y) / (canvas1.height * 0.8)) * 200;
+  document.getElementById('s1-ref').value = Math.max(-120, Math.min(120, val));
+});
+
+// ══════════════════════════════════════════════════════════════
+//  MODUL 2 — PURE PURSUIT
+// ══════════════════════════════════════════════════════════════
+let m2 = {
+  x: 0, y: 0, heading: 0, trail: [],
+  ghost: { x: 0, y: 0, heading: 0, trail: [] },   // L₂-Vergleichsfahrzeug
+  pathFn: t => ({ x: t, y: Math.sin(t * 0.012) * 80 + Math.sin(t * 0.025) * 30 })
+};
+
+function initPurePursuit() {
+  m2.x = 60; m2.y = 0; m2.heading = 0; m2.trail = [];
+  m2.ghost.x = 60; m2.ghost.y = 0; m2.ghost.heading = 0; m2.ghost.trail = [];
+}
+
+// Lookahead-Zielpunkt aus diskreten Wegpunkten per Interpolation bestimmen
+function findLookaheadTarget(waypoints, vsx, vsy, L) {
+  let prevInside = null, target = null;
+  for (let i = 0; i < waypoints.length; i++) {
+    const p = waypoints[i];
+    const dist = Math.sqrt((p.sx - vsx) ** 2 + (p.sy - vsy) ** 2);
+    if (dist < L) {
+      prevInside = { ...p, dist };
+    } else if (prevInside !== null && target === null) {
+      // Interpoliere zwischen letztem Punkt innerhalb und erstem außerhalb
+      const d0 = prevInside.dist, d1 = dist;
+      const t = (L - d0) / (d1 - d0);
+      target = {
+        sx: prevInside.sx + t * (p.sx - prevInside.sx),
+        sy: prevInside.sy + t * (p.sy - prevInside.sy),
+        interpolated: true
+      };
+    }
+  }
+  return target || (waypoints.length > 3 ? waypoints[3] : waypoints[waypoints.length - 1]);
+}
+
+function purePursuitStep(vehicle, L, v, pathFn, H, vsx) {
+  // Diskrete Wegpunkte: vom Fahrzeug aus vorwärts
+  // sx = vsx + (wx - vehicle.x) → Fahrzeug immer bei screen x = vsx
+  const waypoints = [];
+  for (let wx = vehicle.x - 10; wx <= vehicle.x + Math.max(L * 3, 250); wx += 25) {
+    const py = pathFn(wx).y;
+    waypoints.push({ wx, wy: py, sx: vsx + (wx - vehicle.x), sy: H/2 + py });
+  }
+
+  const vsy = H/2 + pathFn(vehicle.x).y + vehicle.y;
+  const target = findLookaheadTarget(waypoints, vsx, vsy, L);
+
+  const pathY  = H/2 + pathFn(vehicle.x).y;
+  const lateralErr = vsy - pathY;
+  const dx = target.sx - vsx, dy = target.sy - vsy;
+  const alpha     = Math.atan2(dy, dx) - vehicle.heading;
+  const wb        = 30;   // Radstand in px (visuell: Fahrzeuglänge ≈ 28 px)
+  const kappa     = 2 * Math.sin(alpha) / L;
+  const radius    = Math.abs(kappa) > 0.001 ? 1 / Math.abs(kappa) : Infinity;
+  const steerAngle = Math.atan(wb * 2 * Math.sin(alpha) / L);  // δ = arctan(2·l·sin(α)/L)
+
+  vehicle.heading += kappa * v * 0.5;
+  const ds = v * 0.5;
+  const pathSlope = pathFn(vehicle.x + 1).y - pathFn(vehicle.x).y;  // dp/dx
+  vehicle.x += Math.cos(vehicle.heading) * ds;
+  // pfadrelatives y: Fahrzeugbewegung minus Pfadanstieg über zurückgelegte x-Strecke
+  vehicle.y += (Math.sin(vehicle.heading) - pathSlope * Math.cos(vehicle.heading)) * ds;
+
+  return { vsx, vsy, pathY, lateralErr, target, waypoints, radius, steerAngle, alpha, kappa, L };
+}
+
+function drawVehicle(ctx, x, y, heading, col) {
+  ctx.save();
+  ctx.translate(x, y); ctx.rotate(heading);
+  ctx.fillStyle = col + '22'; ctx.strokeStyle = col; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.roundRect(-14, -8, 28, 16, 4); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = col;
+  [[-8,-10],[8,-10],[-8,10],[8,10]].forEach(([wx,wy]) => {
+    ctx.beginPath(); ctx.roundRect(wx-4, wy-3, 8, 5, 2); ctx.fill();
+  });
+  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(10, 0, 3, 0, Math.PI*2); ctx.fill();
+  ctx.restore();
+}
+
+function drawPurePursuit() {
+  const ctx = ctx2, W = canvas2.width, H = canvas2.height;
+  const L  = parseFloat(document.getElementById('s2-L').value);
+  const L2 = parseFloat(document.getElementById('s2-L2').value);
+  const v  = parseFloat(document.getElementById('s2-v').value);
+  document.getElementById('v2-L').textContent  = L;
+  document.getElementById('v2-L2').textContent = L2;
+  document.getElementById('v2-v').textContent  = v.toFixed(1);
+
+  // Simulationsschritte für Haupt- und Ghost-Fahrzeug
+  const vsx  = Math.round(canvas2.width * 0.28);
+
+  // Ghost zurücksetzen wenn er mehr als eine Canvas-Breite vom Hauptfahrzeug entfernt ist
+  if (Math.abs(m2.ghost.x - m2.x) > canvas2.width) {
+    m2.ghost.x = m2.x; m2.ghost.y = m2.y;
+    m2.ghost.heading = m2.heading; m2.ghost.trail = [];
+  }
+
+  const res  = purePursuitStep(m2,       L,  v, t => m2.pathFn(t), H, vsx);
+  const res2 = purePursuitStep(m2.ghost, L2, v, t => m2.pathFn(t), H, vsx);
+
+  m2.trail.push({ x: res.vsx, y: res.vsy, ox: m2.x });
+  m2.ghost.trail.push({ x: res2.vsx, y: res2.vsy, ox: m2.ghost.x });
+  if (m2.trail.length > 300)       m2.trail.shift();
+  if (m2.ghost.trail.length > 300) m2.ghost.trail.shift();
+
+  document.getElementById('st2-y').textContent = res.lateralErr.toFixed(1);
+  document.getElementById('st2-r').textContent = res.radius > 999 ? '∞' : res.radius.toFixed(0);
+  document.getElementById('st2-d').textContent = (res.steerAngle * 180 / Math.PI).toFixed(1) + '°';
+
+  // ── ZEICHNEN ─────────────────────────────────────────────────
+  ctx.clearRect(0, 0, W, H);
+  const offset = m2.x - vsx;
+
+  // Gitter
+  ctx.strokeStyle = 'rgba(0,0,0,0.05)';
+  for (let x = 0; x < W; x+=40) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+  for (let y = 0; y < H; y+=40) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+
+  // Pfadpunkte (fein, für Straßenkorridor und Referenzlinie)
+  const pathPts = [];
+  for (let t = offset - 10; t < offset + W + 50; t += 6) {
+    const p = m2.pathFn(t);
+    pathPts.push({ wx: p.x - offset, wy: H/2 + p.y });
+  }
+
+  // Straßenkorridor
+  const roadW = 50;
+  ctx.fillStyle = 'rgba(48,112,179,0.06)';
+  ctx.beginPath();
+  pathPts.forEach((p,i) => i===0 ? ctx.moveTo(p.wx, p.wy - roadW) : ctx.lineTo(p.wx, p.wy - roadW));
+  [...pathPts].reverse().forEach(p => ctx.lineTo(p.wx, p.wy + roadW));
+  ctx.closePath(); ctx.fill();
+
+  // Referenzpfad (gestrichelt)
+  ctx.strokeStyle = '#3070b3'; ctx.lineWidth = 2; ctx.setLineDash([8, 6]);
+  ctx.beginPath();
+  pathPts.forEach((p, i) => i===0 ? ctx.moveTo(p.wx, p.wy) : ctx.lineTo(p.wx, p.wy));
+  ctx.stroke(); ctx.setLineDash([]);
+
+  // ── Diskrete Wegpunkte (alle 25px) ──────────────────────────
+  res.waypoints.forEach(p => {
+    const onScreen = p.sx > -10 && p.sx < W + 10;
+    if (!onScreen) return;
+    const dist = Math.sqrt((p.sx - res.vsx)**2 + (p.sy - res.vsy)**2);
+    const inside = dist < L;
+    ctx.beginPath(); ctx.arc(p.sx, p.sy, inside ? 4 : 3, 0, Math.PI*2);
+    ctx.fillStyle = inside ? 'rgba(245,158,11,0.5)' : 'rgba(48,112,179,0.4)';
+    ctx.fill();
+    ctx.strokeStyle = inside ? '#f59e0b' : '#3070b3'; ctx.lineWidth = 1;
+    ctx.stroke();
+  });
+
+  // Ghost-Trail (lila, vor Haupt-Trail)
+  if (m2.ghost.trail.length > 1) {
+    ctx.strokeStyle = 'rgba(139,92,246,0.35)'; ctx.lineWidth = 2;
+    ctx.beginPath();
+    m2.ghost.trail.forEach((p, i) => {
+      const sx = vsx + (p.ox - m2.x);
+      i === 0 ? ctx.moveTo(sx, p.y) : ctx.lineTo(sx, p.y);
+    });
+    ctx.stroke();
+  }
+
+  // Haupt-Trail (blau)
+  if (m2.trail.length > 1) {
+    ctx.strokeStyle = 'rgba(74,144,217,0.45)'; ctx.lineWidth = 2;
+    ctx.beginPath();
+    m2.trail.forEach((p, i) => {
+      const sx = vsx + (p.ox - m2.x);
+      i === 0 ? ctx.moveTo(sx, p.y) : ctx.lineTo(sx, p.y);
+    });
+    ctx.stroke();
+  }
+
+  // Ghost-Lookahead-Kreis (lila, dünn)
+  const gvsx = vsx + (m2.ghost.x - m2.x), gvsy = H/2 + m2.pathFn(m2.ghost.x).y + m2.ghost.y;
+  ctx.strokeStyle = 'rgba(139,92,246,0.2)'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.arc(gvsx, gvsy, L2, 0, Math.PI*2); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Haupt-Lookahead-Kreis (orange)
+  ctx.strokeStyle = 'rgba(245,158,11,0.35)'; ctx.lineWidth = 1.5; ctx.setLineDash([4,3]);
+  ctx.beginPath(); ctx.arc(res.vsx, res.vsy, L, 0, Math.PI*2); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // ── Geometrische Konstruktion (d, y, r) ──────────────────────
+  const tx = res.target.sx, ty = res.target.sy;
+  const vx = res.vsx,       vy = res.vsy;
+  const footX = tx, footY = vy;   // Fusspunkt des Lots
+
+  ctx.strokeStyle = 'rgba(245,158,11,0.55)'; ctx.lineWidth = 1; ctx.setLineDash([4,3]);
+  // d (longitudinal, horizontal)
+  ctx.beginPath(); ctx.moveTo(vx, vy); ctx.lineTo(footX, footY); ctx.stroke();
+  // y (lateral, vertikal)
+  ctx.beginPath(); ctx.moveTo(footX, footY); ctx.lineTo(tx, ty); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Beschriftungen d und y
+  ctx.fillStyle = '#f59e0b'; ctx.font = '9px IBM Plex Mono'; ctx.textAlign = 'center';
+  ctx.fillText('d', (vx + footX)/2, vy - 5);
+  ctx.fillText('y', footX + 10, (vy + ty)/2);
+  ctx.textAlign = 'left';
+
+  // Chord L (Linie Fahrzeug → Zielpunkt, orange)
+  ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(vx, vy); ctx.lineTo(tx, ty); ctx.stroke();
+
+  // Winkel α: zwischen Fahrzeug-Heading und Chord zum Zielpunkt
+  if (Math.abs(res.alpha) > 0.02) {
+    const arcR = 34;
+    const headingAngle = m2.heading;
+    const chordAngle   = headingAngle + res.alpha;
+    // Heading-Richtungslinie (gestrichelt, blau)
+    ctx.strokeStyle = '#4a90d9'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]);
+    ctx.beginPath();
+    ctx.moveTo(vx, vy);
+    ctx.lineTo(vx + arcR * Math.cos(headingAngle), vy + arcR * Math.sin(headingAngle));
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // Bogen α (grün)
+    ctx.strokeStyle = '#10b981'; ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(vx, vy, arcR, headingAngle, chordAngle, res.alpha < 0);
+    ctx.stroke();
+    // Label α an Bogenmitte
+    const midAngle = headingAngle + res.alpha / 2;
+    ctx.fillStyle = '#10b981'; ctx.font = 'bold 12px IBM Plex Mono';
+    ctx.textAlign = 'center';
+    ctx.fillText('α', vx + (arcR + 14) * Math.cos(midAngle), vy + (arcR + 14) * Math.sin(midAngle));
+    ctx.textAlign = 'left';
+  }
+
+  // Interpolierter Zielpunkt
+  ctx.fillStyle = '#f59e0b';
+  ctx.beginPath(); ctx.arc(tx, ty, 7, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(tx, ty, 3, 0, Math.PI*2); ctx.fill();
+  if (res.target.interpolated) {
+    ctx.fillStyle = '#f59e0b'; ctx.font = '9px IBM Plex Mono';
+    ctx.fillText('interpoliert', tx + 10, ty - 6);
+  }
+
+  // Lateraler Fehler (rot gestrichelt)
+  ctx.strokeStyle = '#f43f5e88'; ctx.lineWidth = 1; ctx.setLineDash([2,2]);
+  ctx.beginPath(); ctx.moveTo(vx, vy); ctx.lineTo(vx, res.pathY); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Ghost-Fahrzeug (lila, Umriss)
+  drawVehicle(ctx, gvsx, gvsy, m2.ghost.heading, '#8b5cf6');
+
+  // Haupt-Fahrzeug (blau)
+  drawVehicle(ctx, res.vsx, res.vsy, m2.heading, '#4a90d9');
+
+  // Labels
+  ctx.font = '11px IBM Plex Mono';
+  ctx.fillStyle = '#4a90d9'; ctx.fillText(`— L₁=${L}px`, 16, 20);
+  ctx.fillStyle = '#8b5cf6'; ctx.fillText(`— L₂=${L2}px (Ghost)`, 110, 20);
+  ctx.fillStyle = '#3070b3'; ctx.fillText('-- Referenzpfad', 270, 20);
+  ctx.fillStyle = 'rgba(48,112,179,0.6)'; ctx.fillText('● Wegpunkte', 16, 36);
+}
+
+// Klick auf Canvas → Fahrzeug aus dem Pfad werfen
+canvas2.addEventListener('click', e => {
+  const rect = canvas2.getBoundingClientRect();
+  m2.y = (e.clientY - rect.top) - (canvas2.height/2 + m2.pathFn(m2.x).y);
+  m2.trail = [];
+});
+
+// ══════════════════════════════════════════════════════════════
+//  MODUL 3 — PID-REGLER
+// ══════════════════════════════════════════════════════════════
+let m3 = {
+  x: 0, y: 0, heading: 0, trail: [],
+  errorHist: [],
+  integralErr: 0,
+  prevErr: 0,
+  filteredDErr: 0,
+  mode: 'PID',          // Schritt-Modus: 'P' | 'PD' | 'PID'
+  t: 0,
+  pathFn: t => Math.sin(t * 0.007) * 65 + Math.cos(t * 0.004) * 25
+};
+
+function setM3Mode(mode) {
+  m3.mode = mode;
+  m3.integralErr = 0; m3.filteredDErr = 0; m3.prevErr = 0;
+  document.querySelectorAll('#m3 .mode-btn').forEach(b =>
+    b.classList.toggle('active', b.textContent === mode)
+  );
+  const explains = {
+    P:   'Nur P-Regler: Lenkwinkel wächst proportional zum Fehler an (Doppelintegrator). Das Fahrzeug schwingt — ohne D-Dämpfung divergiert die Trajektorie. Ki und Kd sind deaktiviert.',
+    PD:  'P + D: D-Anteil dämpft Schwingungen durch Reaktion auf Fehleränderung. Kein I → bleibender Restfehler bleibt, aber stabileres Verhalten. Ki ist deaktiviert.',
+    PID: 'Vollständiger PID: P korrigiert Abweichung, D dämpft Schwingungen, I eliminiert bleibenden Restfehler. Tuning ist empirisch und systemabhängig — keine feste Reihenfolge vorgeschrieben.'
+  };
+  document.getElementById('m3-mode-explain').textContent = explains[mode];
+  // Inaktive Slider ausgrauen
+  document.getElementById('s3-ki').disabled = (mode !== 'PID');
+  document.getElementById('s3-kd').disabled = (mode === 'P');
+}
+
+function resetPID() {
+  m3.x = 60; m3.y = 0; m3.heading = 0; m3.trail = [];
+  m3.errorHist = []; m3.integralErr = 0; m3.prevErr = 0; m3.filteredDErr = 0; m3.t = 0;
+}
+
+function drawPID() {
+  const W = canvas3a.width, H = canvas3a.height;
+  const kp = parseFloat(document.getElementById('s3-kp').value);
+  const ki = parseFloat(document.getElementById('s3-ki').value);
+  const kd = parseFloat(document.getElementById('s3-kd').value);
+  const v  = parseFloat(document.getElementById('s3-v').value);
+  document.getElementById('v3-kp').textContent = kp.toFixed(1);
+  document.getElementById('v3-ki').textContent = ki.toFixed(2);
+  document.getElementById('v3-kd').textContent = kd.toFixed(1);
+  document.getElementById('v3-v').textContent  = v.toFixed(1);
+
+  // Pfadpunkte
+  const vsx = Math.round(W * 0.28);
+  const offset = m3.x - vsx;
+  const pathPts = [];
+  for (let t = offset; t < offset + W + 100; t += 8) {
+    pathPts.push({ wx: t - offset, wy: H/2 + m3.pathFn(t) });
+  }
+
+  const vsy = H/2 + m3.y;
+  const pathY = H/2 + m3.pathFn(m3.x);
+  const err = vsy - pathY;   // aktueller Fehler e(t)
+
+  // ── PID-BERECHNUNG ──────────────────────────────────────────
+  // Anti-Windup (Clamping): Integration einfrieren wenn Heading-Aktor sättigt
+  const headingSat = Math.abs(m3.heading) >= 0.59;
+  if (!headingSat) m3.integralErr = m3.integralErr * 0.995 + err;
+  else             m3.integralErr *= 0.995;  // langsames Vergessen bei Sättigung
+  // Differenzial: Tiefpassfilter (α=0.25) gegen Frame-Rauschen
+  // Rohes dErr pro Frame ist zu verrauscht → großes Kd würde sonst destabilisieren
+  const rawDErr = err - m3.prevErr;
+  m3.filteredDErr = m3.filteredDErr * 0.6 + rawDErr * 0.4;
+  m3.prevErr = err;
+
+  // PID-Formel: u = Kp·e + Ki·∫e + Kd·(de/dt)
+  // Pfad-Tangente (numerische Ableitung) → Winkelabweichung eψ
+  const pathTangent = Math.atan2(m3.pathFn(m3.x + 1) - m3.pathFn(m3.x), 1);
+  const headingErr  = m3.heading - pathTangent;   // eψ: Winkel Fahrzeug − Pfad
+
+  const useD = m3.mode === 'PD' || m3.mode === 'PID';
+  const useI = m3.mode === 'PID';
+
+  const pTerm = kp * err;
+  const iTerm = useI ? ki * m3.integralErr * 0.01 : 0;
+  const dTerm = useD ? kd * m3.filteredDErr * 2   : 0;
+  const u = -(pTerm + iTerm + dTerm);
+
+  // Fahrzeugkinematik: δ̇ = u  →  Heading integriert (Doppelintegrator δ→ψ→y)
+  // Dadurch schwingt P-allein, D stabilisiert — wie im echten Fahrzeug
+  m3.heading = Math.max(-0.6, Math.min(0.6, m3.heading + u * 0.003));
+  m3.x += Math.cos(m3.heading) * v * 0.5;
+  m3.y += Math.sin(m3.heading) * v * 0.5;
+
+  m3.trail.push({ x: vsx, y: vsy, ox: m3.x });
+  m3.errorHist.push(err);
+  m3.t++;
+  if (m3.trail.length > 400)  m3.trail.shift();
+  if (m3.errorHist.length > W - 40) m3.errorHist.shift();
+
+  document.getElementById('st3-e').textContent   = err.toFixed(1);
+  document.getElementById('st3-psi').textContent = (headingErr * 180 / Math.PI).toFixed(1) + '°';
+  document.getElementById('st3-p').textContent   = pTerm.toFixed(2);
+  document.getElementById('st3-i').textContent   = iTerm.toFixed(2);
+  document.getElementById('st3-d').textContent   = dTerm.toFixed(2);
+  document.getElementById('st3-u').textContent   = u.toFixed(2);
+
+  // ── canvas3a: Fahrsimulation ─────────────────────────────────
+  const ctx = ctx3a;
+  ctx.clearRect(0, 0, W, H);
+
+  // Gitter
+  ctx.strokeStyle = 'rgba(0,0,0,0.05)';
+  for (let x = 0; x < W; x+=40) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+  for (let y = 0; y < H; y+=40) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+
+  // Straße
+  ctx.fillStyle = 'rgba(16, 185, 129, 0.05)';
+  ctx.beginPath();
+  pathPts.forEach((p,i) => i===0 ? ctx.moveTo(p.wx, p.wy-45) : ctx.lineTo(p.wx, p.wy-45));
+  [...pathPts].reverse().forEach(p => ctx.lineTo(p.wx, p.wy+45));
+  ctx.closePath(); ctx.fill();
+
+  // Referenzpfad
+  ctx.strokeStyle = '#10b981';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([8, 6]);
+  ctx.beginPath();
+  pathPts.forEach((p,i) => i===0 ? ctx.moveTo(p.wx, p.wy) : ctx.lineTo(p.wx, p.wy));
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Fahrspur
+  if (m3.trail.length > 1) {
+    ctx.strokeStyle = 'rgba(74,144,217,0.5)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    m3.trail.forEach((p, i) => {
+      const sx = vsx + (p.ox - m3.x);
+      if (i===0) ctx.moveTo(sx, p.y);
+      else ctx.lineTo(sx, p.y);
+    });
+    ctx.stroke();
+  }
+
+  // Fehler-Linie (aktueller Abstand vom Pfad)
+  ctx.strokeStyle = '#f43f5e';
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([2,2]);
+  ctx.beginPath();
+  ctx.moveTo(vsx, vsy);
+  ctx.lineTo(vsx, pathY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#f43f5e';
+  ctx.font = '11px IBM Plex Mono';
+  ctx.fillText(`e=${err.toFixed(1)}`, vsx + 6, (vsy+pathY)/2);
+
+  // Pfadtangenten-Linie (zeigt Soll-Fahrtrichtung)
+  const tLen = 40;
+  ctx.strokeStyle = 'rgba(16,185,129,0.4)';
+  ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]);
+  ctx.beginPath();
+  ctx.moveTo(vsx - Math.cos(pathTangent) * tLen * 0.4, vsy - Math.sin(pathTangent) * tLen * 0.4);
+  ctx.lineTo(vsx + Math.cos(pathTangent) * tLen, vsy + Math.sin(pathTangent) * tLen);
+  ctx.stroke(); ctx.setLineDash([]);
+
+  // Winkelabweichungs-Bogen eψ (zwischen Pfadtangente und Fahrzeugheading)
+  if (Math.abs(headingErr) > 0.02) {
+    const arcR = 28;
+    ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(vsx, vsy, arcR, pathTangent, pathTangent + headingErr,  headingErr < 0);
+    ctx.stroke();
+    // Label eψ
+    const midAngle = pathTangent + headingErr / 2;
+    ctx.fillStyle = '#f59e0b'; ctx.font = '10px IBM Plex Mono';
+    ctx.fillText('eψ', vsx + Math.cos(midAngle) * (arcR + 8) - 6, vsy + Math.sin(midAngle) * (arcR + 8) + 4);
+  }
+
+  // Fahrzeug
+  ctx.save();
+  ctx.translate(vsx, vsy);
+  ctx.rotate(m3.heading);
+  ctx.fillStyle = '#f0f2f5';
+  ctx.strokeStyle = '#10b981';
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.roundRect(-14,-8,28,16,4); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#10b981';
+  [[-8,-10],[8,-10],[-8,10],[8,10]].forEach(([wx,wy]) => {
+    ctx.beginPath(); ctx.roundRect(wx-4,wy-3,8,5,2); ctx.fill();
+  });
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(10,0,3,0,Math.PI*2); ctx.fill();
+  ctx.restore();
+
+  // Legende
+  ctx.fillStyle = '#10b981';
+  ctx.font = '11px IBM Plex Mono';
+  ctx.fillText('— Fahrzeug', 16, 20);
+  ctx.fillText('-- Referenzpfad', 110, 20);
+
+  // ── canvas3b: Fehler-Zeitverlauf ─────────────────────────────
+  const ctx2 = ctx3b;
+  const W2 = canvas3b.width, H2 = canvas3b.height;
+  ctx2.clearRect(0, 0, W2, H2);
+
+  // Nulllinie
+  ctx2.strokeStyle = 'rgba(0,0,0,0.10)';
+  ctx2.lineWidth = 1;
+  ctx2.beginPath(); ctx2.moveTo(0, H2/2); ctx2.lineTo(W2, H2/2); ctx2.stroke();
+
+  if (m3.errorHist.length > 1) {
+    // Fehler-Füllung
+    ctx2.fillStyle = 'rgba(244,63,94,0.15)';
+    ctx2.beginPath();
+    m3.errorHist.forEach((e, i) => {
+      const x = (i / m3.errorHist.length) * W2;
+      const y = H2/2 + (e / 150) * (H2*0.45);
+      i===0 ? ctx2.moveTo(x, H2/2) : null;
+      ctx2.lineTo(x, y);
+    });
+    ctx2.lineTo(W2, H2/2);
+    ctx2.closePath(); ctx2.fill();
+
+    // Fehlerkurve
+    ctx2.strokeStyle = '#f43f5e';
+    ctx2.lineWidth = 1.5;
+    ctx2.beginPath();
+    m3.errorHist.forEach((e, i) => {
+      const x = (i / m3.errorHist.length) * W2;
+      const y = H2/2 + (e / 150) * (H2*0.45);
+      i===0 ? ctx2.moveTo(x, y) : ctx2.lineTo(x, y);
+    });
+    ctx2.stroke();
+  }
+
+  ctx2.fillStyle = '#f43f5e';
+  ctx2.font = '10px IBM Plex Mono';
+  ctx2.fillText('Regelfehler e(t)', 8, 14);
+  ctx2.fillStyle = '#6b7280';
+  ctx2.fillText('0', 4, H2/2 + 4);
+
+  // ── canvas3c: Regelkreis-Blockdiagramm ───────────────────────
+  drawControlLoop(pTerm, iTerm, dTerm, err, u);
+}
+
+function drawControlLoop(pTerm, iTerm, dTerm, err, u) {
+  const c = ctx3c;
+  const W = canvas3c.width, H = canvas3c.height;
+  c.clearRect(0, 0, W, H);
+
+  // Hilfsfunktionen
+  const col = {
+    box:    '#e8ecf1',
+    border: 'rgba(0,0,0,0.15)',
+    green:  '#10b981',
+    red:    '#f43f5e',
+    blue:   '#4a90d9',
+    muted:  '#5a6271',
+    text:   '#1a1d24',
+    arrow:  'rgba(0,0,0,0.35)',
+  };
+
+  function box(x, y, w, h, label, value, accent) {
+    // Schatten
+    c.shadowColor = 'rgba(0,0,0,0.08)';
+    c.shadowBlur = 6;
+    c.fillStyle = col.box;
+    c.strokeStyle = accent || col.border;
+    c.lineWidth = accent ? 1.5 : 1;
+    c.beginPath();
+    c.roundRect(x, y, w, h, 5);
+    c.fill(); c.stroke();
+    c.shadowBlur = 0;
+
+    // Label oben
+    c.fillStyle = col.muted;
+    c.font = '9px IBM Plex Mono';
+    c.textAlign = 'center';
+    c.fillText(label, x + w/2, y + 13);
+
+    // Wert groß unten
+    if (value !== null) {
+      const abv = Math.abs(value);
+      const valCol = abv > 20 ? col.red : abv > 5 ? '#f59e0b' : col.green;
+      c.fillStyle = valCol;
+      c.font = 'bold 13px IBM Plex Mono';
+      c.fillText(typeof value === 'number' ? value.toFixed(1) : value, x + w/2, y + h - 10);
+    }
+    c.textAlign = 'left';
+  }
+
+  function arrow(x1, y1, x2, y2, label) {
+    c.strokeStyle = col.arrow;
+    c.lineWidth = 1.5;
+    c.beginPath(); c.moveTo(x1, y1); c.lineTo(x2, y2); c.stroke();
+    // Pfeilspitze
+    const angle = Math.atan2(y2 - y1, x2 - x1);
+    c.fillStyle = col.arrow;
+    c.beginPath();
+    c.moveTo(x2, y2);
+    c.lineTo(x2 - 7 * Math.cos(angle - 0.4), y2 - 7 * Math.sin(angle - 0.4));
+    c.lineTo(x2 - 7 * Math.cos(angle + 0.4), y2 - 7 * Math.sin(angle + 0.4));
+    c.closePath(); c.fill();
+    if (label) {
+      c.fillStyle = col.muted;
+      c.font = '9px IBM Plex Mono';
+      c.textAlign = 'center';
+      c.fillText(label, (x1+x2)/2, Math.min(y1,y2) - 4);
+      c.textAlign = 'left';
+    }
+  }
+
+  function arrowBend(x1, y1, cornerX, cornerY, x2, y2, label) {
+    c.strokeStyle = col.arrow;
+    c.lineWidth = 1.5;
+    c.setLineDash([4, 3]);
+    c.beginPath();
+    c.moveTo(x1, y1);
+    c.lineTo(cornerX, cornerY);
+    c.lineTo(x2, y2);
+    c.stroke();
+    c.setLineDash([]);
+    const angle = Math.atan2(y2 - cornerY, x2 - cornerX);
+    c.fillStyle = col.arrow;
+    c.beginPath();
+    c.moveTo(x2, y2);
+    c.lineTo(x2 - 7 * Math.cos(angle - 0.4), y2 - 7 * Math.sin(angle - 0.4));
+    c.lineTo(x2 - 7 * Math.cos(angle + 0.4), y2 - 7 * Math.sin(angle + 0.4));
+    c.closePath(); c.fill();
+    if (label) {
+      c.fillStyle = col.muted;
+      c.font = '9px IBM Plex Mono';
+      c.textAlign = 'center';
+      c.fillText(label, cornerX + 20, cornerY + 12);
+      c.textAlign = 'left';
+    }
+  }
+
+  // Layout-Maße
+  const bw = 88, bh = 52;
+  const row1y = 20;           // obere Boxen
+  const row2y = 108;          // PID-Terme (P, I, D)
+  const midY  = row1y + bh/2; // vertikale Mitte der oberen Reihe
+
+  // X-Positionen der Boxen (gleichmäßig über Breite verteilt)
+  const pad = 18;
+  const totalBoxes = 5;
+  const step = (W - pad*2 - bw) / (totalBoxes - 1);
+
+  const xSoll  = pad;
+  const xErr   = pad + step;
+  const xPID   = pad + step * 2;
+  const xFz    = pad + step * 3;
+  const xPos   = pad + step * 4;
+
+  // ── Boxen ──
+  box(xSoll, row1y, bw, bh, 'SOLLWERT',  null,  col.blue);
+  c.fillStyle = col.blue; c.font = '11px IBM Plex Mono'; c.textAlign = 'center';
+  c.fillText('Spurmitte', xSoll + bw/2, row1y + bh/2 + 5);
+  c.textAlign = 'left';
+
+  box(xErr,  row1y, bw, bh, 'FEHLER e(t)', err,   col.red);
+  box(xPID,  row1y, bw, bh, 'PID-REGLER',  null,  col.green);
+
+  // PID Summe-Symbol im Regler-Block
+  const pidCx = xPID + bw/2, pidCy = row1y + bh/2 + 4;
+  c.strokeStyle = col.green; c.lineWidth = 1;
+  c.beginPath(); c.arc(pidCx, pidCy, 10, 0, Math.PI*2); c.stroke();
+  c.fillStyle = col.green; c.font = 'bold 14px IBM Plex Mono'; c.textAlign = 'center';
+  c.fillText('Σ', pidCx, pidCy + 5);
+  c.textAlign = 'left';
+
+  box(xFz,   row1y, bw, bh, 'STELLGRÖSSE u', u,   '#8b5cf6');
+  box(xPos,  row1y, bw, bh, 'FAHRZEUG',  null,  col.muted);
+  c.fillStyle = col.muted; c.font = '11px IBM Plex Mono'; c.textAlign = 'center';
+  c.fillText('δ → pos', xPos + bw/2, row1y + bh/2 + 5);
+  c.textAlign = 'left';
+
+  // ── P/I/D Einzel-Terme (kleine Boxen unter PID) ──
+  const sbw = 70, sbh = 36;
+  const stepy = row2y;
+  const pX = xPID - sbw - 4;
+  const iX = xPID + (bw - sbw) / 2;
+  const dX = xPID + bw + 4;
+
+  box(pX, stepy, sbw, sbh, 'P = Kp·e',   pTerm, null);
+  box(iX, stepy, sbw, sbh, 'I = Ki·∫e',  iTerm, null);
+  box(dX, stepy, sbw, sbh, 'D = Kd·ė',   dTerm, null);
+
+  // Linien von P/I/D → Summe im PID-Block
+  [pX + sbw/2, iX + sbw/2, dX + sbw/2].forEach(sx => {
+    c.strokeStyle = col.green; c.lineWidth = 1; c.setLineDash([3,3]);
+    c.beginPath();
+    c.moveTo(sx, stepy);
+    c.lineTo(sx, row1y + bh);
+    c.stroke();
+    c.setLineDash([]);
+  });
+
+  // ── Pfeile obere Reihe ──
+  arrow(xSoll + bw, midY, xErr, midY, '');
+  arrow(xErr  + bw, midY, xPID, midY, '');
+  arrow(xPID  + bw, midY, xFz,  midY, '');
+  arrow(xFz   + bw, midY, xPos, midY, '');
+
+  // ── Feedback-Pfeil (Fahrzeug → Fehler, gebogen unten) ──
+  const fbY = H - 14;
+  arrowBend(xPos + bw/2, row1y + bh, xPos + bw/2, fbY, xErr + bw/2, fbY, 'neue Position → Fehler');
+  arrow(xErr + bw/2, fbY, xErr + bw/2, row1y + bh, '');
+
+  // Titel
+  c.fillStyle = col.muted;
+  c.font = '10px IBM Plex Mono';
+  c.fillText('Regelkreis', 6, 11);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  MODUL 4 — MPC
+// ══════════════════════════════════════════════════════════════
+let m4 = {
+  x: 0, y: 0, heading: 0, vel: 0, trail: [],
+  costHist: [], uHist: [], t: 0,
+  pathFn: t => Math.sin(t * 0.014) * 90 + Math.sin(t * 0.03) * 25
+};
+
+function resetMPC() {
+  m4.x = 80; m4.y = 0; m4.heading = 0; m4.trail = [];
+  m4.costHist = []; m4.uHist = []; m4.t = 0;
+}
+
+// Vereinfachte MPC-Optimierung: diskrete Steuerkandidaten ausprobieren
+// In der Realität: QP-Solver (OSQP, qpOASES) oder NLP-Solver (IPOPT)
+function mpcOptimize(xWorld, yOff, heading, pathFn, N, Q, R, v, uMax) {
+  const steps = 13;
+  const allCandidates = [];
+
+  for (let si = 0; si < steps; si++) {
+    const u = -uMax + si * (2 * uMax / (steps - 1));
+    let J = 0, cx = xWorld, cy = yOff, ch = heading;
+    const traj = [];
+    for (let k = 0; k < N; k++) {
+      ch += u * 0.3;
+      cx += Math.cos(ch) * v * 0.5;
+      cy += Math.sin(ch) * v * 0.5;
+      const e = cy - pathFn(cx);
+      J += Q * e * e + R * u * u;
+      traj.push({ x: cx, y: cy });
+    }
+    allCandidates.push({ u, J, traj });
+  }
+
+  allCandidates.sort((a, b) => a.J - b.J);
+  const best = allCandidates[0];
+
+  // Kontrastkandidaten: u=-uMax, u=0, u=+uMax (Grenzfälle + neutral)
+  // So sieht man warum der Optimierer seine Wahl trifft
+  const contrastUs = [-uMax, 0, uMax];
+  const candidates = contrastUs.map(targetU => {
+    return allCandidates.reduce((prev, cur) =>
+      Math.abs(cur.u - targetU) < Math.abs(prev.u - targetU) ? cur : prev
+    );
+  }).filter(c => Math.abs(c.u - best.u) > uMax * 0.15); // beste nicht doppelt zeigen
+
+  return { u: best.u, J: best.J, pred: best.traj, candidates };
+}
+
+function drawMPC() {
+  const W = canvas4a.width, H = canvas4a.height;
+  const N    = parseInt(document.getElementById('s4-N').value);
+  const Q    = parseFloat(document.getElementById('s4-Q').value);
+  const R    = parseFloat(document.getElementById('s4-R').value);
+  const v    = parseFloat(document.getElementById('s4-v').value);
+  const uMax = parseFloat(document.getElementById('s4-umax').value);
+  document.getElementById('v4-N').textContent    = N;
+  document.getElementById('v4-Q').textContent    = Q.toFixed(1);
+  document.getElementById('v4-R').textContent    = R.toFixed(1);
+  document.getElementById('v4-umax').textContent = uMax.toFixed(2);
+  document.getElementById('v4-v').textContent = v.toFixed(1);
+
+  const vsx = Math.round(W * 0.28);
+  const offset = m4.x - vsx;
+  const pathPts = [];
+  for (let t = offset; t < offset + W + 100; t += 8) {
+    pathPts.push({ wx: t - offset, wy: H/2 + m4.pathFn(t) });
+  }
+
+  const vsy = H/2 + m4.y;
+  const pathY = H/2 + m4.pathFn(m4.x);
+  const err = vsy - pathY;
+
+  // MPC-Optimierung ausführen → optimales u und Prädiktion
+  const { u, J, pred, candidates } = mpcOptimize(m4.x, m4.y, m4.heading, m4.pathFn, N, Q, R, v, uMax);
+
+  // Nur ersten Steuerbefehl ausführen (Receding Horizon)
+  m4.heading += u * 0.3;
+  m4.x += Math.cos(m4.heading) * v * 0.5;
+  m4.y += Math.sin(m4.heading) * v * 0.5;
+
+  m4.trail.push({ x: vsx, y: vsy, ox: m4.x });
+  const jSmooth = m4.costHist.length > 0
+    ? m4.costHist[m4.costHist.length - 1] * 0.88 + Math.min(J, 500) * 0.12
+    : Math.min(J, 500);
+  m4.costHist.push(jSmooth);
+  // Geglätteter Verlauf für die Darstellung (α=0.12 → starke Tiefpassfilterung)
+  const uSmooth = m4.uHist.length > 0
+    ? m4.uHist[m4.uHist.length - 1] * 0.88 + u * 0.12
+    : u;
+  m4.uHist.push(uSmooth);
+  m4.t++;
+  if (m4.trail.length > 400)       m4.trail.shift();
+  if (m4.costHist.length > W - 40) m4.costHist.shift();
+  if (m4.uHist.length > W - 40)    m4.uHist.shift();
+
+  const clamped = Math.abs(u) >= uMax * 0.98;
+  document.getElementById('st4-J').textContent = J.toFixed(0);
+  document.getElementById('st4-e').textContent = err.toFixed(1);
+  document.getElementById('st4-u').textContent = u.toFixed(3);
+  const cEl = document.getElementById('st4-c');
+  cEl.textContent = clamped ? 'aktiv!' : 'ok';
+  cEl.style.color = clamped ? 'var(--coral)' : 'var(--green)';
+
+  // Constraint-Bar aktualisieren
+  document.getElementById('cbar-min').textContent = '−' + uMax.toFixed(2);
+  document.getElementById('cbar-max').textContent = '+' + uMax.toFixed(2);
+  const barPct = (u / uMax + 1) / 2;          // 0=links, 0.5=mitte, 1=rechts
+  const marker = document.getElementById('cbar-marker');
+  marker.style.left = `calc(${barPct * 100}% - 2px)`;
+  marker.className = 'constraint-bar-marker' + (clamped ? ' clamped' : '');
+  const fill = document.getElementById('cbar-fill');
+  if (u >= 0) { fill.style.left = '50%'; fill.style.width = (barPct - 0.5) * 100 + '%'; }
+  else         { fill.style.left = barPct * 100 + '%'; fill.style.width = (0.5 - barPct) * 100 + '%'; }
+
+  // ── canvas4a: Fahrsimulation mit Prädiktion ───────────────────
+  const ctx = ctx4a;
+  ctx.clearRect(0, 0, W, H);
+
+  // Gitter
+  ctx.strokeStyle = 'rgba(0,0,0,0.05)';
+  for (let x = 0; x < W; x+=40) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+  for (let y = 0; y < H; y+=40) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+
+  // Straße
+  ctx.fillStyle = 'rgba(139, 92, 246, 0.05)';
+  ctx.beginPath();
+  pathPts.forEach((p,i) => i===0 ? ctx.moveTo(p.wx, p.wy-50) : ctx.lineTo(p.wx, p.wy-50));
+  [...pathPts].reverse().forEach(p => ctx.lineTo(p.wx, p.wy+50));
+  ctx.closePath(); ctx.fill();
+
+  // Referenzpfad
+  ctx.strokeStyle = '#10b981';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([8,6]);
+  ctx.beginPath();
+  pathPts.forEach((p,i) => i===0 ? ctx.moveTo(p.wx, p.wy) : ctx.lineTo(p.wx, p.wy));
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Fahrspur
+  if (m4.trail.length > 1) {
+    ctx.strokeStyle = 'rgba(139,92,246,0.4)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    m4.trail.forEach((p, i) => {
+      const sx = vsx + (p.ox - m4.x);
+      if (i===0) ctx.moveTo(sx, p.y); else ctx.lineTo(sx, p.y);
+    });
+    ctx.stroke();
+  }
+
+  // ── VERWORFENE KANDIDATEN-TRAJEKTORIEN ──────────────────────
+  // Zeigt 3 nicht-optimale Alternativen halbtransparent (rot→orange nach Kosten)
+  candidates.forEach((cand, ci) => {
+    const alpha = 0.18 - ci * 0.04;
+    ctx.strokeStyle = `rgba(244,63,94,${alpha + 0.15})`;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    ctx.moveTo(vsx, vsy);
+    cand.traj.forEach(p => ctx.lineTo(vsx + (p.x - m4.x), H/2 + p.y));
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // Kostenlabel am Ende der Trajektorie
+    const last = cand.traj[cand.traj.length - 1];
+    const lx = vsx + (last.x - m4.x), ly = H/2 + last.y;
+    ctx.fillStyle = `rgba(244,63,94,0.55)`;
+    ctx.font = '9px IBM Plex Mono';
+    ctx.fillText(`J=${cand.J.toFixed(0)}`, lx + 4, ly);
+  });
+
+  // ── MPC-PRÄDIKTION (beste Trajektorie) ──────────────────────
+  if (pred.length > 0) {
+    // Verbindungslinie durch alle Prädiktionspunkte
+    ctx.strokeStyle = 'rgba(139,92,246,0.6)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([3,2]);
+    ctx.beginPath();
+    ctx.moveTo(vsx, vsy);
+    pred.forEach(p => {
+      const sx = vsx + (p.x - m4.x);   // Weltkoordinate → Bildschirm
+      const sy = H/2 + p.y;
+      ctx.lineTo(sx, sy);
+    });
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Prädiktionspunkte (werden mit zunehmender Entfernung kleiner/transparenter)
+    pred.forEach((p, i) => {
+      const sx = vsx + (p.x - m4.x);
+      const sy = H/2 + p.y;
+      const alpha = 1 - i / pred.length;   // 1.0 (nah) → 0.0 (fern)
+      ctx.fillStyle = `rgba(139,92,246,${alpha})`;
+      ctx.beginPath();
+      ctx.arc(sx, sy, 4 - i * 0.15, 0, Math.PI*2);  // auch Größe nimmt ab
+      ctx.fill();
+    });
+
+    // Horizont-Label mit Klammer
+    const lastPred = pred[pred.length-1];
+    const lsx = vsx + (lastPred.x - m4.x);
+    ctx.strokeStyle = 'rgba(139,92,246,0.3)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([2,2]);
+    ctx.beginPath();
+    ctx.moveTo(vsx, vsy - 20);
+    ctx.lineTo(lsx, vsy - 20);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#8b5cf6';
+    ctx.font = '10px IBM Plex Mono';
+    ctx.textAlign = 'center';
+    ctx.fillText(`N=${N} Schritte`, (vsx + lsx)/2, vsy - 25);
+    ctx.textAlign = 'left';
+  }
+
+  // Fahrzeug
+  ctx.save();
+  ctx.translate(vsx, vsy);
+  ctx.rotate(m4.heading);
+  ctx.fillStyle = '#f0f2f5';
+  ctx.strokeStyle = '#8b5cf6';
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.roundRect(-14,-8,28,16,4); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#8b5cf6';
+  [[-8,-10],[8,-10],[-8,10],[8,10]].forEach(([wx,wy]) => {
+    ctx.beginPath(); ctx.roundRect(wx-4,wy-3,8,5,2); ctx.fill();
+  });
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(10,0,3,0,Math.PI*2); ctx.fill();
+  ctx.restore();
+
+  // Legende
+  ctx.font = '11px IBM Plex Mono';
+  ctx.fillStyle = '#8b5cf6'; ctx.fillText('— Prädiz. Trajektorie', 16, 20);
+  ctx.fillStyle = '#10b981'; ctx.fillText('-- Referenz', 190, 20);
+
+  // ── canvas4b: Kostenfunktion über Zeit ────────────────────────
+  const ctxB = ctx4b;
+  const W2 = canvas4b.width, H2 = canvas4b.height;
+  ctxB.clearRect(0, 0, W2, H2);
+
+  // Basislinie
+  ctxB.strokeStyle = 'rgba(0,0,0,0.10)';
+  ctxB.lineWidth = 1;
+  ctxB.beginPath(); ctxB.moveTo(0, H2*0.9); ctxB.lineTo(W2, H2*0.9); ctxB.stroke();
+
+  if (m4.costHist.length > 1) {
+    // Normalisieren: höchster Wert → volle Höhe
+    const maxJ = Math.max(...m4.costHist, 1);
+
+    // Füllung
+    ctxB.fillStyle = 'rgba(139,92,246,0.15)';
+    ctxB.beginPath();
+    ctxB.moveTo(0, H2*0.9);
+    m4.costHist.forEach((j, i) => {
+      const x = (i / m4.costHist.length) * W2;
+      const y = H2*0.9 - (j / maxJ) * H2 * 0.8;
+      ctxB.lineTo(x, y);
+    });
+    ctxB.lineTo(W2, H2*0.9);
+    ctxB.closePath(); ctxB.fill();
+
+    // Kurve
+    ctxB.strokeStyle = '#8b5cf6';
+    ctxB.lineWidth = 1.5;
+    ctxB.beginPath();
+    m4.costHist.forEach((j, i) => {
+      const x = (i / m4.costHist.length) * W2;
+      const y = H2*0.9 - (j / maxJ) * H2 * 0.8;
+      i===0 ? ctxB.moveTo(x, y) : ctxB.lineTo(x, y);
+    });
+    ctxB.stroke();
+  }
+
+  ctxB.fillStyle = '#8b5cf6';
+  ctxB.font = '10px IBM Plex Mono';
+  ctxB.fillText('Kostenfunktion J(t)', 8, 14);
+
+  // ── canvas4c: Stellgrößenverlauf u*(t) ───────────────────────
+  const ctxC = ctx4c;
+  const W3 = canvas4c.width, H3 = canvas4c.height;
+  ctxC.clearRect(0, 0, W3, H3);
+
+  const midY = H3 * 0.5;
+
+  // Nulllinie
+  ctxC.strokeStyle = 'rgba(0,0,0,0.15)';
+  ctxC.lineWidth = 1;
+  ctxC.beginPath(); ctxC.moveTo(0, midY); ctxC.lineTo(W3, midY); ctxC.stroke();
+
+  // ±uMax Grenzlinien
+  ctxC.strokeStyle = 'rgba(239,68,68,0.35)';
+  ctxC.lineWidth = 1;
+  ctxC.setLineDash([4, 4]);
+  ctxC.beginPath(); ctxC.moveTo(0, H3 * 0.08); ctxC.lineTo(W3, H3 * 0.08); ctxC.stroke();
+  ctxC.beginPath(); ctxC.moveTo(0, H3 * 0.92); ctxC.lineTo(W3, H3 * 0.92); ctxC.stroke();
+  ctxC.setLineDash([]);
+
+  if (m4.uHist.length > 1) {
+    const uMax = parseFloat(document.getElementById('s4-umax').value);
+    const scale = uMax > 0 ? uMax : 1;
+
+    // Füllung (positiv/negativ getrennt gefärbt)
+    m4.uHist.forEach((u, i) => {
+      const x = (i / m4.uHist.length) * W3;
+      const w = W3 / m4.uHist.length + 1;
+      const barH = (Math.abs(u) / scale) * H3 * 0.42;
+      ctxC.fillStyle = u >= 0 ? 'rgba(74,144,217,0.35)' : 'rgba(239,68,68,0.30)';
+      ctxC.fillRect(x, u >= 0 ? midY - barH : midY, w, barH);
+    });
+
+    // Kurve
+    ctxC.strokeStyle = '#4a90d9';
+    ctxC.lineWidth = 1.5;
+    ctxC.beginPath();
+    m4.uHist.forEach((u, i) => {
+      const x = (i / m4.uHist.length) * W3;
+      const y = midY - (u / scale) * H3 * 0.42;
+      i === 0 ? ctxC.moveTo(x, y) : ctxC.lineTo(x, y);
+    });
+    ctxC.stroke();
+  }
+
+  // Labels
+  ctxC.fillStyle = '#4a90d9';
+  ctxC.font = '10px IBM Plex Mono';
+  ctxC.fillText('Stellgröße u*(t)', 8, 14);
+  ctxC.fillStyle = 'rgba(239,68,68,0.6)';
+  ctxC.font = '9px IBM Plex Mono';
+  ctxC.textAlign = 'right';
+  ctxC.fillText('+uMax', W3 - 4, H3 * 0.08 + 9);
+  ctxC.fillText('−uMax', W3 - 4, H3 * 0.92 - 3);
+  ctxC.textAlign = 'left';
+}
+
+// ══════════════════════════════════════════════════════════════
+//  MAIN LOOP — der Herzschlag der Anwendung
+//
+//  requestAnimationFrame(loop) = Browser ruft loop() auf
+//  sobald er bereit für den nächsten Frame ist (~60x pro Sekunde)
+//  Das ist effizienter als setInterval() weil der Browser
+//  die Animation pausiert wenn der Tab nicht sichtbar ist.
+// ══════════════════════════════════════════════════════════════
+function loop() {
+  // Alle 4 Module in jedem Frame updaten (auch wenn nicht sichtbar,
+  // damit der Zustand konsistent bleibt — aber nur das aktive wird gezeichnet)
+  drawRegelkreis();
+  drawPurePursuit();
+  drawPID();
+  drawMPC();
+
+  // Nächsten Frame anfordern → Endlosschleife
+  requestAnimationFrame(loop);
+}
+
+// ── INITIALISIERUNG ──────────────────────────────────────────
+// setTimeout(fn, 100): 100ms warten damit der Browser das Layout
+// berechnet hat, bevor wir Canvas-Größen setzen
+setTimeout(() => {
+  resizeAll();
+  initPurePursuit();
+  resetPID();
+  resetMPC();
+  loop();   // Animationsloop starten
+}, 100);
+
+</script>
+</body>
+</html>
