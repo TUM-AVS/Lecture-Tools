@@ -1,0 +1,157 @@
+# Koordinatentransformation – Interaktives Lerntool
+
+Interaktives Visualisierungstool zur **Vorlesung 3 (Koordinatentransformation)** aus
+*Grundlagen Autonomer Fahrzeuge (GAV)*, TUM.
+
+Das Tool soll dir helfen, ein Gefühl für Rotationen, Translationen und vor allem
+den Unterschied zwischen **aktiver** und **passiver** Transformation zu bekommen. Du
+schiebst an Reglern, das Bild reagiert sofort, und daneben stehen live die dazu
+passenden Matrizen und Formeln.
+
+---
+
+## Voraussetzungen
+
+- Python 3.9 oder neuer
+- NumPy
+- Matplotlib
+
+Installieren (falls noch nicht vorhanden):
+
+```bash
+pip install numpy matplotlib
+```
+
+> Wichtig: Das Tool braucht ein **interaktives** Matplotlib-Backend (ein echtes Fenster).
+> In einem normalen Terminal oder in VS Code funktioniert das direkt. In Jupyter/Colab
+> sind die Regler oft träge, dort lieber `%matplotlib qt` setzen oder gleich
+> lokal starten.
+
+---
+
+## Starten
+
+```bash
+python KosyTrafo3_0_3_backup.py
+```
+
+Es öffnet sich ein Fenster im **Passiv-Modus** (dem Robotik-Standard). Über den
+Button oben rechts schaltest du zwischen den vier Modi um.
+
+---
+
+## Aufbau des Fensters
+
+| Bereich            | Inhalt                                                    |
+|--------------------|-----------------------------------------------------------|
+| Oben links         | 2D-Plot (Inhalt hängt vom gewählten Modus ab)             |
+| Oben Mitte         | 3D-Ansicht mit Roll / Pitch / Yaw                         |
+| Oben rechts        | Schieberegler, Szenarien-Buttons und der Modus-Umschalter |
+| Unten links        | Live-Matrizen und Formeln                                 |
+| Unten Mitte/rechts | Legende mit Erklärung zum aktuellen Modus                 |
+
+Die Hintergrundfarbe des Fensters ändert sich mit dem Modus – nur zur schnellen
+Orientierung (Orange = Aktiv, Blau = Passiv usw.).
+
+---
+
+## Die vier Modi
+
+Das ist der eigentliche Lernkern. Nimm dir für jeden Modus ein paar Minuten und spiel
+mit den Reglern.
+
+### 1. Passiv – *das Koordinatensystem dreht sich*
+
+Der geometrische Vektor `p` bleibt fest im Raum stehen. Was sich dreht, ist das
+Koordinatensystem, in dem wir ihn *beschreiben*. Der Vektor sieht also gleich aus, bekommt
+aber neue **Zahlen** (Koordinaten).
+
+Die lokalen Koordinaten ergeben sich aus
+
+```
+ᴸp = Rᵀ · ᵂp
+```
+
+Das ist der Standardfall in der Robotik: Weltframe, Fahrzeugframe, Sensorframe – ein und
+derselbe Punkt, nur in verschiedenen Bezugssystemen ausgedrückt. Achte im Plot darauf,
+wie der blaue Vektor `p` liegen bleibt, während die orangen Komponenten sich mit dem
+gedrehten System ändern.
+
+### 2. Aktiv – *der Punkt dreht sich*
+
+Jetzt bleibt das Koordinatensystem fest und der **Vektor selbst** wird physisch gedreht:
+
+```
+ᵂp' = R(θ) · ᵂp
+```
+
+Der gebogene Pfeil zeigt die tatsächliche Bewegung von `p` nach `p'`. Das ist der Fall,
+den man z. B. braucht, wenn ein Roboterarm ein Objekt tatsächlich rotiert.
+
+> **Der Kernpunkt der ganzen Vorlesung:** Aktive Rotation um `+θ` und passive Rotation um
+> `−θ` sehen im Zahlenergebnis identisch aus. `R` und `Rᵀ` sind zueinander invers.
+
+### 3. Vergleich – *Aktiv | Passiv nebeneinander*
+
+Zwei große 2D-Plots direkt nebeneinander mit denselben Reglerwerten. Dreh am
+Yaw-Regler und beobachte beide Seiten gleichzeitig.
+
+### 4. Verkettung – *Intrinsisch | Extrinsisch*
+
+Führt dich in vier Schritten durch eine verkettete Rotation und zeigt die zentrale
+Identität aus der Vorlesung:
+
+```
+Intrinsisch ZYX  ≡  Extrinsisch XYZ
+```
+
+- **Intrinsisch** (körperfest): jede Rotation wirkt um die *neuen*, mitgedrehten
+  Körperachsen.
+- **Extrinsisch** (weltfest): jede Rotation wirkt um die *festen* Weltachsen.
+
+Beide Wege führen zur **gleichen Endmatrix** – aber nur, wenn man die Reihenfolge umdreht.
+Die grauen „Geist"-Achsen im Plot zeigen dir jeweils den vorherigen Schritt, damit du die
+Drehung nachvollziehen kannst.
+
+---
+
+## Bedienung
+
+**Regler (oben rechts):**
+
+| Regler     | Bedeutung                        | Bereich      |
+|------------|----------------------------------|--------------|
+| `Δx`, `Δy` | Translation des Frames           | −5 … 5       |
+| `Yaw θz`   | Drehung um die z-Achse (Gieren)  | −180° … 180° |
+| `Roll θx`  | Drehung um die x-Achse (3D)      | −180° … 180° |
+| `Pitch θy` | Drehung um die y-Achse (3D)      | −180° … 180° |
+| `Px`, `Py` | Messpunkt / Vektor `p`           | −1,5 … 1,5   |
+
+**Szenarien-Buttons:** springen zu vordefinierten Einstellungen –
+*Nur Transl.*, *45° Yaw*, *Rot+Transl.* und *Gegenrot.* (praktisch zum schnellen
+Ausprobieren typischer Fälle).
+
+**↺ Reset:** setzt alle Regler auf die Startwerte zurück.
+
+---
+
+## Konventionen
+
+Damit du die Formeln richtig liest:
+
+- Alle Winkel werden in **Grad** eingegeben und intern nach Bogenmaß umgerechnet.
+- Positive Winkel drehen **gegen den Uhrzeigersinn** (mathematisch positiv).
+- Die 3D-Gesamtrotation ist als **Yaw-Pitch-Roll** verkettet:
+
+  ```
+  R = Rz(θz) · Ry(θy) · Rx(θx)
+  ```
+
+- Passiv nutzt `Rᵀ`, Aktiv nutzt `R`. Das ist der ganze Unterschied im Code – und der
+  häufigste Vorzeichen-/Reihenfolgen-Fehler in Übungsaufgaben.
+
+---
+
+## Datei
+
+`KosyTrafo3_0_3_backup.py` – alles in einer Datei, keine weiteren Projektdateien nötig.
